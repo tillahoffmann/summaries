@@ -1,5 +1,5 @@
-TEMPLATE_NAME
+summaries
 =============
 
-.. image:: https://github.com/TEMPLATE_USER/TEMPLATE_REPO/actions/workflows/main.yml/badge.svg
-  :target: https://github.com/TEMPLATE_USER/TEMPLATE_REPO/actions/workflows/main.yml
+.. image:: https://github.com/tillahoffmann/summaries/actions/workflows/main.yml/badge.svg
+  :target: https://github.com/tillahoffmann/summaries/actions/workflows/main.yml
