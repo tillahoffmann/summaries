@@ -20,16 +20,6 @@ jobs:
         with:
           path: ${{ env.pythonLocation }}
           key: ${{ env.pythonLocation }}-${{ hashFiles('test_requirements.txt') }}
-      - if: github.repository == 'tillahoffmann/template'
-        name: "Maybe apply template"
-        run: |
-          python apply_template.py myproject -u myuser -r myrepo
-          ! grep --exclude-dir=.git --exclude=apply_template.py -r summaries .
-          ! grep --exclude-dir=.git --exclude=apply_template.py -r tillahoffmann .
-          ! grep --exclude-dir=.git --exclude=apply_template.py -r summaries .
-          ! find . -name summaries | grep .
-          ! find . -name tillahoffmann | grep .
-          ! find . -name summaries | grep .
       - name: "Install dependencies"
         run: "pip install -r test_requirements.txt"
       - name: "Build the project"
