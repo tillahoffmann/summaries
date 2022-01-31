@@ -1,5 +1,6 @@
 master_doc = 'README'
 extensions = [
+    'matplotlib.sphinxext.plot_directive',
     'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
 ]
