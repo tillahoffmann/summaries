@@ -14,15 +14,11 @@ def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  #
         entropy_method: Nearest neighbor method for estimatingn the mutual information.
         scale: Scale of each prior distribution.
     """
-    # Sample from the left and right priors.
-    thetas = {
-        'left': np.random.normal(-1, scale, m),
-        'right': np.random.normal(1, scale, m),
-    }
-
+    mus = {'left': -1, 'center': 0, 'right': 1}
     results = {}
-    for key, theta in thetas.items():
-        # Sample from the likelihood.
+    for key, mu in mus.items():
+        # Sample from the prior and likelihood.
+        theta = np.random.normal(mu, scale, m)
         left = np.random.normal(0, np.exp(theta[:, None] / 2), (m, n))
         right = np.random.normal(theta[:, None], 1, (m, n))
         x = np.where(theta[:, None] < 0, left, right)
@@ -33,6 +29,7 @@ def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  #
 
         # Store the results in a dictionary for later plotting.
         results[key] = {
+            'mu': mu,
             'theta': theta,
             'x': x,
             'mean': mean,
@@ -52,7 +49,8 @@ def _plot_example(m: int = 10000, n: int = 100, entropy_method: str = 'singh',
     fig, axes = plt.subplots(2, 2, sharex=True)
 
     ax = axes[0, 0]
-    for mu in [-1, 1]:
+    for result in results.values():
+        mu = result['mu']
         lin = mu + np.linspace(-1, 1, 100) * 3 * scale
         prior = stats.norm(mu, scale)
         label = fr'$\theta\sim\mathrm{{Normal}}\left({mu}, 0.1\right)$'
