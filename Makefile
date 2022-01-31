@@ -3,7 +3,7 @@
 build : lint tests docs
 
 lint :
-	flake8
+	flake8 --exclude=docs
 
 tests :
 	pytest -v --cov=summaries --cov-fail-under=100 --cov-report=term-missing --cov-report=html

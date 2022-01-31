@@ -1,7 +1,7 @@
 import numpy as np
 from pytest_bootstrap import bootstrap_test
 from scipy import integrate
-from summaries.examples import bimodal
+from summaries.examples import bimodal, broad_posterior  # noqa: F401
 
 
 def test_expected_posterior_entropy():

@@ -9,7 +9,7 @@ the posterior has symmetries. In particular, let
 .. math::
 
     \tau \mid a, b &\sim \mathrm{Gamma}(a, b)\\
-    x_i \mid \theta &\sim \mathrm{Normal}\left(0, \tau^{-1}\right),
+    x_i \mid \tau &\sim \mathrm{Normal}\left(0, \tau^{-1}\right),
 
 where :math:`i` indexes each of the :math:`n` observations. This problem can be solved exactly
 because the gamma prior for the precision (inverse variance) :math:`\tau` is conjugate to the normal
@@ -23,27 +23,27 @@ Rather than sticking with the standard parameterization, we instead change varia
 :math:`\theta` such that :math:`\tau=\theta^2` which induces a bimodal posterior with zero mean.
 
 .. plot::
-   :include-source:
+    :include-source:
 
-   import numpy as np
-   from summaries.examples import bimodal
-   np.random.seed(0)
+    import numpy as np
+    from summaries.examples import bimodal
+    np.random.seed(0)
 
-   # Generate data.
-   a, b, n = 3, 4, 10
-   tau = np.random.gamma(a, 1 / b)
-   x = np.random.normal(0, 1 / np.sqrt(tau), n)
+    # Generate data.
+    a, b, n = 3, 4, 10
+    tau = np.random.gamma(a, 1 / b)
+    x = np.random.normal(0, 1 / np.sqrt(tau), n)
 
-   # Infer the posterior and show it.
-   ap = a + n / 2
-   bp = b + np.sum(x ** 2)
-   lin = np.linspace(-1.5, 1.5, 100)
+    # Infer the posterior and show it.
+    ap = a + n / 2
+    bp = b + np.sum(x ** 2)
+    lin = np.linspace(-1.5, 1.5, 100)
 
-   fig, ax = plt.subplots()
-   ax.plot(lin, np.exp(bimodal.evaluate_log_prob(lin, ap, bp)))
-   ax.set_xlabel(r'Parameter $\theta$')
-   ax.set_ylabel(r'Posterior density $p(\theta\mid a,b,x)$')
-   fig.tight_layout()
+    fig, ax = plt.subplots()
+    ax.plot(lin, np.exp(bimodal.evaluate_log_prob(lin, ap, bp)))
+    ax.set_xlabel(r'Parameter $\theta$')
+    ax.set_ylabel(r'Posterior density $p(\theta\mid a,b,x)$')
+    fig.tight_layout()
 """
 
 import numpy as np
