@@ -8,12 +8,18 @@ setup(
     install_requires=[
         'matplotlib',
         'numpy',
+        'pandas',
+        'scikit-learn',
+        'scipy',
+        'torch',
+        'tqdm',
     ],
     extras_require={
         'tests': [
             'flake8',
             'pytest',
             'pytest-cov',
+            'pytest-bootstrap',
         ],
         'docs': [
             'sphinx',
