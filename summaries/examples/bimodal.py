@@ -1,51 +1,4 @@
-r"""
-Bimodal posterior due to reparameterization
--------------------------------------------
-
-In this example, we consider a simple conjugate model illustrating that the posterior mean is
-difficult to interpret when the posterior is multimodal (e.g. mixture models) or more generally if
-the posterior has symmetries. In particular, let
-
-.. math::
-
-    \tau \mid a, b &\sim \mathrm{Gamma}(a, b)\\
-    x_i \mid \tau &\sim \mathrm{Normal}\left(0, \tau^{-1}\right),
-
-where :math:`i` indexes each of the :math:`n` observations. This problem can be solved exactly
-because the gamma prior for the precision (inverse variance) :math:`\tau` is conjugate to the normal
-likelihood with known mean (zero in our case). In particular, the posterior is
-
-.. math::
-
-    \tau \mid a,b,x \sim\mathrm{Gamma}\left(a+\frac{n}{2}, b+\frac{1}{2} \sum_{i=1}^n x_i^2\right).
-
-Rather than sticking with the standard parameterization, we instead change variables to
-:math:`\theta` such that :math:`\tau=\theta^2` which induces a bimodal posterior with zero mean.
-
-.. plot::
-    :include-source:
-
-    import numpy as np
-    from summaries.examples import bimodal
-    np.random.seed(0)
-
-    # Generate data.
-    a, b, n = 3, 4, 10
-    tau = np.random.gamma(a, 1 / b)
-    x = np.random.normal(0, 1 / np.sqrt(tau), n)
-
-    # Infer the posterior and show it.
-    ap = a + n / 2
-    bp = b + np.sum(x ** 2)
-    lin = np.linspace(-1.5, 1.5, 100)
-
-    fig, ax = plt.subplots()
-    ax.plot(lin, np.exp(bimodal.evaluate_log_prob(lin, ap, bp)))
-    ax.set_xlabel(r'Parameter $\theta$')
-    ax.set_ylabel(r'Posterior density $p(\theta\mid a,b,x)$')
-    fig.tight_layout()
-"""
-
+from matplotlib import pyplot as plt
 import numpy as np
 from scipy import special
 
@@ -90,3 +43,31 @@ def evaluate_expected_posterior_entropy(a: np.ndarray, b: np.ndarray, n: np.ndar
     """
     return (2 * a + n - np.log(b) + 2 * special.gammaln(a + n / 2) + special.digamma(a)
             - (2 * a + n) * special.digamma(a + n / 2)) / 2
+
+
+def _plot_example() -> None:  # pragma: no cover
+    r"""
+    Plot the posterior distribution of :math:`\theta` given synthetic data.
+
+    Args:
+        a: Shape parameter for the precision prior gamma distribution.
+        b: Rate parameter for the precision prior gamma distribution.
+        n: Number of observations in the dataset.
+    """
+    np.random.seed(0)
+
+    # Generate data.
+    a, b, n = 3, 4, 10
+    tau = np.random.gamma(a, 1 / b)
+    x = np.random.normal(0, 1 / np.sqrt(tau), n)
+
+    # Infer the posterior and show it.
+    ap = a + n / 2
+    bp = b + np.sum(x ** 2)
+    lin = np.linspace(-1.5, 1.5, 100)
+
+    fig, ax = plt.subplots()
+    ax.plot(lin, np.exp(evaluate_log_prob(lin, ap, bp)))
+    ax.set_xlabel(r'Parameter $\theta$')
+    ax.set_ylabel(r'Posterior density $p(\theta\mid a,b,x)$')
+    fig.tight_layout()

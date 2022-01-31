@@ -1,34 +1,20 @@
-r"""
-High posterior entropy compared with prior
-------------------------------------------
+from matplotlib import pyplot as plt
+import numpy as np
+from scipy import stats
 
-The posterior entropy given a *particular* dataset may have higher entropy than the prior. But the
-*expected* posterior entropy will always be at least as small as the prior entropy. Here, we
-consider a simple example
 
-.. math::
+def _plot_example(a: float = 10, b: float = 50, n: int = 100, variance: float = 0.5) \
+        -> None:  # pragma: no cover
+    """
+    Plot the prior, likelihood (posterior with improper prior), and posterior distribution for a
+    simple conjugate model together with their entropies.
 
-    \tau&\sim\mathrm{Gamma}(a, b)\\
-    x\mid \tau&\sim\mathrm{Normal}(0, \tau^{-1})
-
-which is a classic textbook example because the posterior is analytically tractable (see
-:mod:`summaries.examples.bimodal` for details).
-
-When the likelihood conflicts with the prior (ironically a situation where we acquire a lot of
-information--and the KL divergence between prior and posterior is large), the posterior entropy may
-be higher than the prior entropy as illustrated below.
-
-.. plot::
-    :include-source:
-
-    import numpy as np
-    from scipy import stats
-
-    a = 10
-    b = 50
-    variance = .5
-    n = 100
-
+    Args:
+        a: Shape parameter for the precision prior gamma distribution.
+        b: Rate parameter for the precision prior gamma distribution.
+        n: Number of observations in the dataset.
+        variance: Realised variance in the dataset.
+    """
     dists = {
         'Prior': stats.gamma(a, scale=1 / b),
         'Posterior with improper prior\n(normalized likelihood)':
@@ -57,7 +43,3 @@ be higher than the prior entropy as illustrated below.
     ax.set_xlabel(r'Precision $\tau$')
     ax.set_ylabel('Density')
     fig.tight_layout()
-"""
-
-from matplotlib import axes
-axes.Axes.legend

@@ -9,6 +9,7 @@ tests :
 	pytest -v --cov=summaries --cov-fail-under=100 --cov-report=term-missing --cov-report=html
 
 docs :
+	rm -rf docs/_build/plot_directive
 	sphinx-build . docs/_build
 
 sync : requirements.txt
