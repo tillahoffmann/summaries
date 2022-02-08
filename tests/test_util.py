@@ -1,4 +1,4 @@
-import itertools as it
+from matplotlib import pyplot as plt
 import numpy as np
 import pytest
 from scipy import stats
@@ -17,7 +17,8 @@ def test_estimate_entropy(size):
     assert abs(actual - expected) < .1
 
 
-@pytest.mark.parametrize('method, normalize', it.product(['singh', 'kl'], ['x', 'y', 'xy', False]))
+@pytest.mark.parametrize('method', ['singh', 'kl'])
+@pytest.mark.parametrize('normalize', ['x', 'y', 'xy', False])
 def test_estimate_mutual_information(method, normalize):
     cov = np.asarray([[1, .7], [.7, 2]])
     x = np.random.multivariate_normal(np.zeros(2), cov, size=NUM_SAMPLES)
@@ -49,3 +50,30 @@ def test_mae_and_mae_uniform():
     actual = summaries.evaluate_mae(x, y)
     expected = summaries.evaluate_mae_uniform(2)
     assert abs(actual - expected) < .1
+
+
+def test_evaluate_level():
+    dist = stats.norm(0, 1)
+    lin = np.linspace(-3, 3, 1000)
+    density = dist.pdf(lin)
+    level = summaries.evaluate_credible_level(density, 0.0455)
+    assert abs(level - dist.pdf(2)) < 1e-2
+
+
+@pytest.mark.parametrize('label_offset', [None, 2])
+@pytest.mark.parametrize('offset', [0.05, (0.02, 0.03)])
+def test_label_axes(label_offset, offset):
+    # Just make sure we can run the code but minimal verification.
+    _, axes = plt.subplots(2, 3)
+    elements = summaries.label_axes(axes.ravel(), label_offset=label_offset, offset=offset)
+    assert len(elements) == 6
+
+
+def test_trapznd():
+    lins = [np.linspace(0, 1, n) for n in [100, 101]]
+    xx = np.asarray(np.meshgrid(*lins))
+    dist = stats.beta([3, 2], [4, 5])
+    pdf = np.prod(dist.pdf(xx.T).T, axis=0)
+    assert pdf.shape == (101, 100)
+    norm = summaries.trapznd(pdf, *lins)
+    assert abs(norm - 1) < 1e-3

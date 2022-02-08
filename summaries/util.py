@@ -1,5 +1,8 @@
+import matplotlib.axes
+import matplotlib.colors
 import numpy as np
 from scipy import spatial, special
+import string
 import typing
 
 
@@ -121,3 +124,65 @@ def maybe_add_batch_dim(x: np.ndarray) -> np.ndarray:
         return x
 
     return x[:, None]
+
+
+def label_axes(axes: list[matplotlib.axes.Axes], labels: list[str] = None, loc: str = 'top left',
+               offset: float = 0.05, label_offset: int = None, **kwargs):
+    """
+    Add labels to axes.
+
+    Args:
+        axes: Iterable of matplotlib axes.
+        labels: Iterable of labels (defaults to lowercase letters in parentheses).
+        loc: Location of the label as a string (defaults to top left).
+        offset: Offset for positioning labels in axes coordinates.
+        label_offset: Index by which to offset labels.
+    """
+    if labels is None:
+        labels = [f'({x})' for x in string.ascii_lowercase]
+    if label_offset is not None:
+        labels = labels[label_offset:]
+    if isinstance(offset, float):
+        xfactor = yfactor = offset
+    else:
+        xfactor, yfactor = offset
+    y, x = loc.split()
+    kwargs = {'ha': x, 'va': y} | kwargs
+    xloc = xfactor if x == 'left' else (1 - xfactor)
+    yloc = yfactor if y == 'bottom' else (1 - yfactor)
+    elements = []
+    for ax, label in zip(axes, labels):
+        elements.append(ax.text(xloc, yloc, label, transform=ax.transAxes, **kwargs))
+    return elements
+
+
+def trapznd(y, *xs, axis=-1):
+    """
+    Evaluate a multivariate integral using the trapezoidal rule.
+
+    Args:
+        y: Integrand.
+        xs: Sample points corresponding to the integrand.
+    """
+    for x in xs:
+        y = np.trapz(y, x, axis=axis)
+    return y
+
+
+def evaluate_credible_level(density: np.ndarray, alpha: float) -> float:
+    r"""
+    Evaluate the level :math:`t` such that the density exceeding :math:`t` integrates to
+    :math:`1 - \alpha`, i.e.
+
+    .. math::
+
+        1 - \alpha = \int dx p(x) \left[p(x) > t\right]
+
+    Args:
+        density: Density of a distribution.
+        alpha: Significance level.
+    """
+    density = density[np.argsort(-density)]
+    cum = np.cumsum(density)
+    i = np.argmax(cum > (1 - alpha) * cum[-1])
+    return density[i]
