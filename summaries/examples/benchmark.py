@@ -27,6 +27,10 @@ class NegativeBinomialDistribution:
     def rvs(self, size=None):
         return np.random.negative_binomial(self.n, self.p, size)
 
+    @property
+    def mean(self):
+        return self.n * (1 - self.p) / self.p
+
 
 # Construct "nice" likelihoods given bivariate parameters in the sense that each likelihood is
 # well-behaved over the unit box.
@@ -106,7 +110,7 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     for i, (likelihood, x) in enumerate(zip(likelihoods, xs)):
         color = f'C{i}'
         # Add a trailing dimension so we can evaluate the logpmf in a batch.
-        mean = likelihood(*(t[..., None] for t in tt)).mean().squeeze()
+        mean = likelihood(*(t[..., None] for t in tt)).mean.squeeze()
         ax1.contour(*tt, mean, levels=[x.mean()], colors=color)
 
         # Show the posterior for each likelihood individually.
@@ -127,7 +131,7 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     return fig
 
 
-def __main__(args=None):
+def __entrypoint__(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, help='seed for the random number generator')
     parser.add_argument('num_samples', type=int, help='number of samples to generate')
@@ -148,7 +152,3 @@ def __main__(args=None):
                 'xs': xs,
             }
             pickle.dump(result, fp)
-
-
-if __name__ == '__main__':  # pragma: no cover
-    __main__()

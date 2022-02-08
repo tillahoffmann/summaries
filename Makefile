@@ -52,4 +52,4 @@ BENCHMARK_SEED_test = 2
 benchmark_data : ${BENCHMARK_TARGETS}
 
 ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/examples/benchmark.py
-	python $< --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
+	generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@

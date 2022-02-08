@@ -85,11 +85,12 @@ def test_negative_binomial_distribution():
     dist2 = benchmark.NegativeBinomialDistribution(n, p)
     x = dist2.rvs()
     np.testing.assert_allclose(dist1.logpmf(x), dist2.logpmf(x))
+    np.testing.assert_allclose(dist1.mean(), dist2.mean)
 
 
 def test_generate_benchmark_data():
     with mock.patch('builtins.open') as open_, mock.patch('pickle.dump') as dump_:
-        benchmark.__main__(['--seed=0', '23', 'some_file.pkl'])
+        benchmark.__entrypoint__(['--seed=0', '23', 'some_file.pkl'])
 
     assert open_.called_once_with('some_file.pkl')
     assert dump_.call_count == 23
