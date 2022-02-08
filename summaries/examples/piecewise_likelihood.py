@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.figure
 from scipy import stats
-import summaries
+from summaries.util import estimate_mutual_information, label_axes
 
 
 def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  # pragma: no cover
@@ -14,7 +15,7 @@ def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  #
         entropy_method: Nearest neighbor method for estimatingn the mutual information.
         scale: Scale of each prior distribution.
     """
-    mus = {'left': -1, 'center': 0, 'right': 1}
+    mus = {'left': -1, 'right': 1}
     results = {}
     for key, mu in mus.items():
         # Sample from the prior and likelihood.
@@ -34,21 +35,21 @@ def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  #
             'x': x,
             'mean': mean,
             'log_var': log_var,
-            'mi_mean': summaries.estimate_mutual_information(theta, mean, method=entropy_method),
-            'mi_log_var': summaries.estimate_mutual_information(theta, log_var,
-                                                                method=entropy_method),
+            'mi_mean': estimate_mutual_information(theta, mean, method=entropy_method),
+            'mi_log_var': estimate_mutual_information(theta, log_var, method=entropy_method),
         }
 
     return results
 
 
-def _plot_example(m: int = 10000, n: int = 100, entropy_method: str = 'singh',
-                  scale: float = .25, num_points: int = 200) -> None:  # pragma: no cover
+def _plot_example(m: int = 100000, n: int = 100, entropy_method: str = 'singh',
+                  scale: float = .25, num_points: int = 200) \
+        -> matplotlib.figure.Figure:  # pragma: no cover
     results = generate_data(m, n, entropy_method, scale)
 
     fig, axes = plt.subplots(2, 2, sharex=True)
 
-    ax = axes[0, 0]
+    ax = axes[1, 0]
     for result in results.values():
         mu = result['mu']
         lin = mu + np.linspace(-1, 1, 100) * 3 * scale
@@ -56,13 +57,12 @@ def _plot_example(m: int = 10000, n: int = 100, entropy_method: str = 'singh',
         label = fr'$\theta\sim\mathrm{{Normal}}\left({mu}, 0.1\right)$'
         line, = ax.plot(lin, prior.pdf(lin), label=label)
         ax.axvline(mu, color=line.get_color(), ls=':')
-    ax.set_ylabel(r'Density $P(\theta)$')
+    ax.set_ylabel(r'Prior density $p(\theta)$')
 
-    ax = axes[1, 0]
+    ax = axes[0, 0]
     lin = np.linspace(-1, 1, 100) * (1 + 3 * scale)
     ax.plot(lin, np.maximum(0, lin), label=r'Location', color='k')
     ax.plot(lin, np.minimum(np.exp(lin / 2), 1), label=r'Scale', color='k', ls='--')
-    ax.legend(fontsize='small', ncol=2)
     ax.set_ylabel('Likelihood parameters')
 
     step = m // num_points  # Only plot `num_points` for better visualisation.
@@ -73,11 +73,18 @@ def _plot_example(m: int = 10000, n: int = 100, entropy_method: str = 'singh',
             if abs(mi) < 1e-3:
                 mi = abs(mi)
             ax.scatter(result['theta'][::step], result[s][::step], marker='.', alpha=.5,
-                       label=fr'${key.title()}$ prior ($\hat{{I}}={mi:.2f}$)')
+                       label=fr'${key.title()}$ ($\hat{{I}}={mi:.2f}$)')
 
     axes[0, 1].set_ylabel(r'$\bar x$')
     axes[1, 1].set_ylabel(r'$\log\mathrm{var}\,x$')
-    [ax.legend(fontsize='small', handletextpad=0, loc=loc)
-     for ax, loc in zip(axes[:, 1], ['upper left', 'lower right'])]
     [ax.set_xlabel(r'Parameter $\theta$') for ax in axes[1]]
+
+    label_axes(axes[0], loc='bottom right')
+    label_axes(axes[1], loc='top left', label_offset=2)
+
+    axes[0, 0].legend()
+    [ax.legend(handletextpad=0, loc=loc)
+     for ax, loc in zip(axes[:, 1], ['upper left', 'lower right'])]
+
     fig.tight_layout()
+    return fig

@@ -182,6 +182,7 @@ def evaluate_credible_level(density: np.ndarray, alpha: float) -> float:
         density: Density of a distribution.
         alpha: Significance level.
     """
+    density = density.ravel()
     density = density[np.argsort(-density)]
     cum = np.cumsum(density)
     i = np.argmax(cum > (1 - alpha) * cum[-1])

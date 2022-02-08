@@ -1,4 +1,4 @@
-.PHONY : docs lint sync tests
+.PHONY : docs lint sync tests figures
 
 build : lint tests docs
 
@@ -20,3 +20,16 @@ requirements.txt : requirements.in setup.py test_requirements.txt
 
 test_requirements.txt : test_requirements.in setup.py
 	pip-compile -v -o $@ $<
+
+FIGURES = bimodal broad_posterior piecewise_likelihood benchmark
+FIGURE_TARGETS = $(addprefix figures/,${FIGURES:=.pdf})
+figures : ${FIGURE_TARGETS}
+
+# Dictionary of seeds for visualization purposes.
+SEED_bimodal = 0
+SEED_broad_posterior = 0
+SEED_piecewise_likelihood = 0
+SEED_benchmark = 3
+
+${FIGURE_TARGETS} : figures/%.pdf : summaries/examples/%.py
+	python scripts/plot.py --seed=${SEED_$*} --style=scrartcl.mplstyle summaries.examples.$*:_plot_example $@
