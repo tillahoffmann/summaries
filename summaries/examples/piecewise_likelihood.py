@@ -70,7 +70,7 @@ def _plot_example(m: int = 100000, n: int = 100, entropy_method: str = 'singh',
             mi = result[f"mi_{s}"].mean()
             # Very close to zero, we may end up with negative results. Let's manually fix that.
             if abs(mi) < 1e-3:
-                mi = abs(mi)
+                mi = abs(mi)  # pragma: no cover
             ax.scatter(result['theta'][::step], result[s][::step], marker='.', alpha=.5,
                        label=fr'${key.title()}$ ($\hat{{I}}={mi:.2f}$)')
 
