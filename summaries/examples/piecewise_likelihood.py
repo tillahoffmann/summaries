@@ -5,7 +5,7 @@ from scipy import stats
 from summaries.util import estimate_mutual_information, label_axes
 
 
-def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  # pragma: no cover
+def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:
     """
     Generate synthetic data that exemplifies the sensitivity of mutual information to prior choice.
 
@@ -43,8 +43,7 @@ def generate_data(m: int, n: int, entropy_method: str, scale: float) -> dict:  #
 
 
 def _plot_example(m: int = 100000, n: int = 100, entropy_method: str = 'singh',
-                  scale: float = .25, num_points: int = 200) \
-        -> matplotlib.figure.Figure:  # pragma: no cover
+                  scale: float = .25, num_points: int = 200) -> matplotlib.figure.Figure:
     results = generate_data(m, n, entropy_method, scale)
 
     fig, axes = plt.subplots(2, 2, sharex=True)

@@ -1,10 +1,26 @@
+import matplotlib.figure
 import numpy as np
 from pytest_bootstrap import bootstrap_test
 from scipy import integrate, stats
 import summaries
-from summaries.examples import benchmark, bimodal, broad_posterior, piecewise_likelihood  \
-    # noqa: F401
+from summaries.examples import benchmark, bimodal, broad_posterior, piecewise_likelihood
 from unittest import mock
+
+
+def test_broad_posterior_plot():
+    assert isinstance(broad_posterior._plot_example(), matplotlib.figure.Figure)
+
+
+def test_piecewise_likelihood_plot():
+    assert isinstance(piecewise_likelihood._plot_example(), matplotlib.figure.Figure)
+
+
+def test_bimodal_plot():
+    assert isinstance(bimodal._plot_example(), matplotlib.figure.Figure)
+
+
+def test_benchmark_plot():
+    assert isinstance(benchmark._plot_example(), matplotlib.figure.Figure)
 
 
 def test_expected_posterior_entropy():

@@ -87,7 +87,7 @@ def evaluate_log_posterior(likelihoods: list[typing.Callable], samples: np.ndarr
 
 
 def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = None) \
-        -> matplotlib.figure.Figure:  # pragma: no cover
+        -> matplotlib.figure.Figure:
     """
     Show (a) mean contours of different negative binomial distributions with level set by the mean
     of a sample drawn from the distribution and (b) individual posterior contours together with the

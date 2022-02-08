@@ -46,7 +46,7 @@ def evaluate_expected_posterior_entropy(a: np.ndarray, b: np.ndarray, n: np.ndar
             - (2 * a + n) * special.digamma(a + n / 2)) / 2
 
 
-def _plot_example() -> matplotlib.figure.Figure:  # pragma: no cover
+def _plot_example() -> matplotlib.figure.Figure:
     r"""
     Plot the posterior distribution of :math:`\phi` given synthetic data.
 

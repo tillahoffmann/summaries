@@ -5,7 +5,7 @@ from scipy import stats
 
 
 def _plot_example(a: float = 2, b: float = 5, n: int = 50, variance: float = 0.5, m: int = 10000) \
-        -> matplotlib.figure.Figure:  # pragma: no cover
+        -> matplotlib.figure.Figure:
     """
     Plot the prior, likelihood (posterior with improper prior), and posterior distribution for a
     simple conjugate model together with their entropies.
