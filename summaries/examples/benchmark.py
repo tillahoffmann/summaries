@@ -1,18 +1,40 @@
+import argparse
 import matplotlib.figure
 from matplotlib import pyplot as plt
 import numpy as np
-from scipy import stats
+import pickle
+from scipy import special
+from tqdm import tqdm
 import typing
 from summaries.util import label_axes, trapznd
+
+
+class NegativeBinomialDistribution:
+    """
+    Negative binomial distribution akin to `scipy.stats.nbinom` but faster.
+    """
+    def __init__(self, n, p):
+        self.n = n
+        self.p = p
+        self._gammaln_n = special.gammaln(self.n)
+        self._logp = np.log(self.p)
+        self._log1mp = np.log1p(-self.p)
+
+    def logpmf(self, x):
+        return x * self._log1mp + self.n * self._logp + special.gammaln(x + self.n) \
+            - self._gammaln_n - special.gammaln(x + 1)
+
+    def rvs(self, size=None):
+        return np.random.negative_binomial(self.n, self.p, size)
 
 
 # Construct "nice" likelihoods given bivariate parameters in the sense that each likelihood is
 # well-behaved over the unit box.
 LIKELIHOODS = [
-    lambda t1, t2: stats.nbinom(1 + t1, 0.1 + 0.8 * t2),
-    lambda t1, t2: stats.nbinom(1 + t1, 0.1 + 0.8 * np.sqrt(t1 * t2)),
-    lambda t1, t2: stats.nbinom(1 + np.sqrt(t1 * t2), 0.1 + 0.8 * t1),
-    lambda t1, t2: stats.nbinom(1 / (1 + t1), 0.1 + 0.8 * t2),
+    lambda t1, t2: NegativeBinomialDistribution(1 + t1, 0.1 + 0.8 * t2),
+    lambda t1, t2: NegativeBinomialDistribution(1 + t1, 0.1 + 0.8 * np.sqrt(t1 * t2)),
+    lambda t1, t2: NegativeBinomialDistribution(1 + np.sqrt(t1 * t2), 0.1 + 0.8 * t1),
+    lambda t1, t2: NegativeBinomialDistribution(1 / (1 + t1), 0.1 + 0.8 * t2),
 ]
 
 
@@ -103,3 +125,30 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     label_axes(axes, loc='top right')
     fig.tight_layout()
     return fig
+
+
+def __main__(args=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--seed', type=int, help='seed for the random number generator')
+    parser.add_argument('num_samples', type=int, help='number of samples to generate')
+    parser.add_argument('output', help='output file path')
+    args = parser.parse_args(args)
+
+    if args.seed is not None:
+        np.random.seed(args.seed)
+
+    # We dump each result into the same binary stream so we can load it again without loading the
+    # entire file into memory (cf. https://stackoverflow.com/a/17623631/1150961).
+    with open(args.output, 'wb') as fp:
+        for _ in tqdm(range(args.num_samples)):
+            theta = np.random.uniform(0, 1, 2)
+            xs = sample(LIKELIHOODS, theta, 5)
+            result = {
+                'theta': theta,
+                'xs': xs,
+            }
+            pickle.dump(result, fp)
+
+
+if __name__ == '__main__':  # pragma: no cover
+    __main__()

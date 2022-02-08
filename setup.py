@@ -18,8 +18,8 @@ setup(
         'tests': [
             'flake8',
             'pytest',
-            'pytest-cov',
             'pytest-bootstrap',
+            'pytest-cov',
         ],
         'docs': [
             'sphinx',
