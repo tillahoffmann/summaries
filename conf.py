@@ -6,3 +6,6 @@ extensions = [
 ]
 project = 'summaries'
 napoleon_custom_sections = [('Returns', 'params_style')]
+plot_formats = [
+    ('png', 144),
+]
