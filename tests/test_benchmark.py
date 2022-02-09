@@ -3,8 +3,6 @@ import numpy as np
 from scipy import stats
 import summaries
 from summaries import benchmark
-from unittest import mock
-from summaries.scripts import generate_benchmark_data
 
 
 def test_benchmark_plot():
@@ -60,16 +58,3 @@ def test_uniform_distribution():
     x = dist2.sample()
     np.testing.assert_allclose(dist1.logpdf(x), dist2.log_prob(x))
     np.testing.assert_allclose(dist1.mean(), dist2.mean)
-
-
-def test_generate_benchmark_data():
-    with mock.patch('builtins.open') as open_, mock.patch('pickle.dump') as dump_:
-        generate_benchmark_data.__main__(['--seed=0', '23', 'some_file.pkl'])
-
-    open_.assert_called_once_with('some_file.pkl', 'wb')
-    dump_.assert_called_once()
-    (result, _), _ = dump_.call_args
-    for key in ['xs', 'theta']:
-        assert key in result
-        assert len(result[key]) == 23
-    assert 'args' in result
