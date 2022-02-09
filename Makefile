@@ -62,3 +62,18 @@ benchmark_data : ${BENCHMARK_TARGETS}
 
 ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_data.py summaries/benchmark.py
 	python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
+
+# Run inference on benchmark data ------------------------------------------------------------------
+
+ALGORITHMS = naive
+# Dataset to evaluate on.
+MODE ?= test
+# Dataset to use as the reference table.
+REFERENCE ?= train
+INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
+NUM_SAMPLES = 113
+
+inference : ${INFERENCE_TARGETS}
+${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl
+	python -m summaries.scripts.run_inference $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
+		${NUM_SAMPLES} $@
