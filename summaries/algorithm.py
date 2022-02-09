@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import spatial
+import typing
 
 
 class Algorithm:
@@ -23,14 +24,21 @@ class RejectionAlgorithm(Algorithm):
         whiten_features: Whether to whiten the features by multiplying them by the inverse Cholesky
             decomposition of the covariance matrix. This is equivalent to using the Mahalanobis
             distance.
+        transform: Optional transform to apply to the features.
     """
     def __init__(self, train_features: np.ndarray, train_params: np.ndarray,
-                 whiten_features: bool = False):
-        # Check shapes.
+                 whiten_features: bool = False, transform: typing.Callable = None):
+        # Validate inputs.
+        self.transform = transform
+        if self.transform:
+            train_features = self.transform(train_features)
         self.train_features = np.asarray(train_features)
+        assert self.train_features.ndim == 2, 'expected features to have two dimensions but got ' \
+            f'shape {self.train_features.shape}'
+
         self.train_params = np.asarray(train_params)
-        assert self.train_features.ndim == 2
-        assert self.train_params.ndim == 2
+        assert self.train_params.ndim == 2, 'expected parameters to have two dimensions but got ' \
+            f'shape {self.train_params.shape}'
         assert self.train_features.shape[0] == self.train_params.shape[0]
 
         if whiten_features:
@@ -46,13 +54,13 @@ class RejectionAlgorithm(Algorithm):
 
         self.reference = spatial.KDTree(features)
 
-    def sample_posterior(self, data: np.ndarray, num_samples: int, return_indices: bool = False,
+    def sample_posterior(self, features: np.ndarray, num_samples: int, return_indices: bool = False,
                          return_distances: bool = False, **kwargs) -> np.ndarray:
         """
         Draw samples from the reference table that minimise the distance to the data.
 
         Args:
-            data: Data vector with `p` features.
+            features: Data vector with `p` features.
             num_samples: Number of posterior samples to draw.
             return_indices: Whether to return indices in the reference table.
             return_distances: Whether to return distances between the data and elements of the
@@ -63,11 +71,13 @@ class RejectionAlgorithm(Algorithm):
             i: Indices of the samples in `reference`.
             d: Distance of each sample from the data (if `return_distances` is `True`).
         """
-        data = np.asarray(data)
-        assert data.ndim == 1
+        if self.transform:
+            features = self.transform(features)
+        features = np.asarray(features)
         if self.inverse_cholesky is not None:
-            data = data @ self.inverse_cholesky
-        distances, indices = self.reference.query(data, k=num_samples, **kwargs)
+            features = features @ self.inverse_cholesky
+
+        distances, indices = self.reference.query(features, k=num_samples, **kwargs)
         y = self.train_params[indices]
         if not (return_indices or return_distances):
             return y

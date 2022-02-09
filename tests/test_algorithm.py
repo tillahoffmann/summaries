@@ -1,23 +1,31 @@
+import itertools as it
 import numpy as np
 import pytest
 import summaries
 
 
-@pytest.mark.parametrize('whiten', [False, True])
-def test_abc(whiten: bool):
+@pytest.fixture(params=it.product([False, True], [None, lambda x: x]))
+def algorithm(request):
     # Generate data from a toy model.
     n = 10000
     mu = np.random.normal(0, 1, (n, 1))
     x = np.random.normal(mu, 1, (n, 10)).mean(axis=1, keepdims=True)
 
     # Construct the reference table/tree.
-    algorithm = summaries.RejectionAlgorithm(x, mu, whiten)
+    whiten_features, transform = request.param
+    return summaries.RejectionAlgorithm(x, mu, whiten_features=whiten_features, transform=transform)
+
+
+def test_rejection_algorithm(algorithm: summaries.RejectionAlgorithm):
+    x = algorithm.train_features
+    mu = algorithm.train_params
 
     # Sample from the approximate posterior.
-    num_samples = 99
+    num_samples = 100
     y1 = algorithm.sample_posterior(x[0], num_samples + 1)
     y, i, d = algorithm.sample_posterior(x[0], num_samples + 1, True, True)
     np.testing.assert_array_equal(y, y1)
+
     # Drop the first sample (because it's what we used to generate the data).
     assert d[0] == 0
     i = i[1:]
@@ -30,3 +38,14 @@ def test_abc(whiten: bool):
     assert mse_all > mse_sample
 
     assert algorithm.num_params == 1
+
+
+def test_rejection_algorithm_batch_query(algorithm: summaries.RejectionAlgorithm):
+    batch_size = 13
+    num_samples = 17
+    x = algorithm.train_features[:batch_size]
+    y, idx, dist = algorithm.sample_posterior(x, num_samples, return_indices=True,
+                                              return_distances=True)
+    assert y.shape == (batch_size, num_samples, algorithm.num_params)
+    assert idx.shape == (batch_size, num_samples)
+    assert dist.shape == (batch_size, num_samples)
