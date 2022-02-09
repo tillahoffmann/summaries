@@ -28,28 +28,52 @@ FIGURE_TARGETS = $(addprefix figures/,${FIGURES:=.pdf})
 figures : ${FIGURE_TARGETS}
 
 # Dictionary of seeds for visualization purposes.
-SEED_bimodal = 0
-SEED_broad_posterior = 0
-SEED_piecewise_likelihood = 0
-SEED_benchmark = 3
+FIGURE_SEED_bimodal = 0
+FIGURE_SEED_broad_posterior = 0
+FIGURE_SEED_piecewise_likelihood = 0
+FIGURE_SEED_benchmark = 3
 
-${FIGURE_TARGETS} : figures/%.pdf : summaries/examples/%.py
-	python scripts/plot.py --seed=${SEED_$*} --style=scrartcl.mplstyle summaries.examples.$*:_plot_example $@
+# Dictionary of methods for plotting.
+FIGURE_FUNC_bimodal = summaries.examples.bimodal:_plot_example
+FIGURE_FUNC_broad_posterior = summaries.examples.broad_posterior:_plot_example
+FIGURE_FUNC_piecewise_likelihood = summaries.examples.piecewise_likelihood:_plot_example
+FIGURE_FUNC_benchmark = summaries.benchmark:_plot_example
+
+${FIGURE_TARGETS} : figures/%.pdf : scrartcl.mplstyle
+	python -m summaries.scripts.plot --seed=${FIGURE_SEED_$*} --style=$< \
+		${FIGURE_FUNC_$*} $@
 
 # Generate benchmark data --------------------------------------------------------------------------
 
-BENCHMARK_NAMES = train validation test
+BENCHMARK_NAMES = train validation test debug
 BENCHMARK_TARGETS = $(addprefix workspace/,${BENCHMARK_NAMES:=.pkl})
 
 BENCHMARK_SIZE_train = 1000000
 BENCHMARK_SIZE_validation = 10000
-BENCHMARK_SIZE_test = 10000
+BENCHMARK_SIZE_test = 1000
+BENCHMARK_SIZE_debug = 100
 
 BENCHMARK_SEED_train = 0
 BENCHMARK_SEED_validation = 1
 BENCHMARK_SEED_test = 2
+BENCHMARK_SEED_debug = 3
 
 benchmark_data : ${BENCHMARK_TARGETS}
 
-${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/examples/benchmark.py
-	generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
+${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_data.py summaries/benchmark.py
+	python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
+
+# Run inference on benchmark data ------------------------------------------------------------------
+
+ALGORITHMS = naive
+# Dataset to evaluate on.
+MODE ?= test
+# Dataset to use as the reference table.
+REFERENCE ?= train
+INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
+NUM_SAMPLES = 113
+
+inference : ${INFERENCE_TARGETS}
+${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl
+	python -m summaries.scripts.run_inference $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
+		${NUM_SAMPLES} $@
