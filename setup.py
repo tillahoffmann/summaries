@@ -23,11 +23,6 @@ setup(
         ],
         'docs': [
             'sphinx',
-        ]
-    },
-    entry_points={
-        'console_scripts': [
-            'generate_benchmark_data=summaries.examples.benchmark:__entrypoint__',
         ],
     }
 )

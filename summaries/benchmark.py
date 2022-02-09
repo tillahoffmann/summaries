@@ -1,12 +1,9 @@
-import argparse
 import matplotlib.figure
 from matplotlib import pyplot as plt
 import numpy as np
-import pickle
 from scipy import special
-from tqdm import tqdm
 import typing
-from summaries.util import label_axes, trapznd
+from .util import label_axes, trapznd
 
 
 class NegativeBinomialDistribution:
@@ -153,27 +150,3 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     label_axes(axes, loc='top right')
     fig.tight_layout()
     return fig
-
-
-def __entrypoint__(args=None):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--seed', type=int, help='seed for the random number generator')
-    parser.add_argument('num_samples', type=int, help='number of samples to generate')
-    parser.add_argument('output', help='output file path')
-    args = parser.parse_args(args)
-
-    if args.seed is not None:
-        np.random.seed(args.seed)
-
-    samples = []
-    for _ in tqdm(range(args.num_samples)):
-        theta = np.random.uniform(0, 1, 2)
-        xs = sample(LIKELIHOODS, theta, 5)
-        result = {
-            'theta': theta,
-            'xs': xs,
-        }
-        samples.append(result)
-
-    with open(args.output, 'wb') as fp:
-        pickle.dump(samples, fp)

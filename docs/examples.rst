@@ -15,7 +15,10 @@ which is a classic textbook example because the posterior is analytically tracta
 
 When the likelihood conflicts with the prior (ironically a situation where we acquire a lot of information--and the KL divergence between prior and posterior is large), the posterior entropy may be higher than the prior entropy as illustrated below.
 
-.. plot:: summaries/examples/broad_posterior.py _plot_example
+.. plot::
+
+    from summaries.examples.broad_posterior import _plot_example
+    _plot_example()
 
 Methods that minimise the posterior given the dataset, such as proposed by Nunes and Balding (2010), will thus not select *any* feature for inference.
 
@@ -39,7 +42,10 @@ where :math:`i` indexes each of the :math:`n` observations. This problem can be 
 
 Rather than sticking with the standard parameterization, we instead change variables to :math:`\theta` such that :math:`\tau=\theta^2` which induces a bimodal posterior with zero mean.
 
-.. plot:: summaries/examples/bimodal.py _plot_example
+.. plot::
+
+    from summaries.examples.bimodal import _plot_example
+    _plot_example()
 
 Importance of prior information for mutual information
 ------------------------------------------------------
@@ -57,11 +63,17 @@ together with three different priors :math:`\theta\sim\mathrm{Normal}(\{-1,0,1\}
 
 We consider two summary statistics, the sample mean :math:`\bar x` and the natural logarithm of the sample variance :math:`\log \mathrm{var} x`. Intuitively, the former will be informative when :math:`\theta > 0` and the latter will be informative when :math:`\theta<0`. To thest this hypothesis, we evaluate the mutual information between the parameter and the two summary statistics, for each of the priors. Scatter plot of the summary statistics against parameter values are shown in the right column together with mutual information estimates. Indeed, the "best" summary statistic is prior dependent as :math:`\bar x` is not informative for the left prior and :math:`\log \mathrm{var} x` is not informative for the right prior. The central prior requires both summary statistics to infer the parameter.
 
-.. plot:: summaries/examples/piecewise_likelihood.py _plot_example
+.. plot::
+
+    from summaries.examples.piecewise_likelihood import _plot_example
+    _plot_example()
 
 Benchmark problem
 -----------------
 
 We need a ground truth to compare with if we want to evaluate different methods for extracting useful summary statistics. We consider a model with two parameters :math:`\theta_1` and :math:`\theta_2` drawn uniformly from the unit box. The data comprise multiple distinct generative models based on `negative binomial distributions <https://en.wikipedia.org/wiki/Negative_binomial_distribution>`_ with different parameterizations as a function of :math:`\theta`. Because the negative binomial distribution does not belong to the exponential family, simple summary statistics independent of sample size do not exist, making the problem more interesting.
 
-.. plot:: summaries/examples/benchmark.py _plot_example
+.. plot::
+
+    from summaries.benchmark import _plot_example
+    _plot_example()
