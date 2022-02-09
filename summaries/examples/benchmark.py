@@ -165,14 +165,15 @@ def __entrypoint__(args=None):
     if args.seed is not None:
         np.random.seed(args.seed)
 
-    # We dump each result into the same binary stream so we can load it again without loading the
-    # entire file into memory (cf. https://stackoverflow.com/a/17623631/1150961).
+    samples = []
+    for _ in tqdm(range(args.num_samples)):
+        theta = np.random.uniform(0, 1, 2)
+        xs = sample(LIKELIHOODS, theta, 5)
+        result = {
+            'theta': theta,
+            'xs': xs,
+        }
+        samples.append(result)
+
     with open(args.output, 'wb') as fp:
-        for _ in tqdm(range(args.num_samples)):
-            theta = np.random.uniform(0, 1, 2)
-            xs = sample(LIKELIHOODS, theta, 5)
-            result = {
-                'theta': theta,
-                'xs': xs,
-            }
-            pickle.dump(result, fp)
+        pickle.dump(samples, fp)
