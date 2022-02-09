@@ -1,20 +1,7 @@
-import matplotlib.figure
 import numpy as np
 from pytest_bootstrap import bootstrap_test
 from scipy import integrate
-from summaries.examples import bimodal, broad_posterior, piecewise_likelihood
-
-
-def test_broad_posterior_plot():
-    assert isinstance(broad_posterior._plot_example(), matplotlib.figure.Figure)
-
-
-def test_piecewise_likelihood_plot():
-    assert isinstance(piecewise_likelihood._plot_example(), matplotlib.figure.Figure)
-
-
-def test_bimodal_plot():
-    assert isinstance(bimodal._plot_example(), matplotlib.figure.Figure)
+from summaries.examples import bimodal
 
 
 def test_expected_posterior_entropy():

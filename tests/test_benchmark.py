@@ -1,12 +1,7 @@
-import matplotlib.figure
 import numpy as np
 from scipy import stats
 import summaries
 from summaries import benchmark
-
-
-def test_benchmark_plot():
-    assert isinstance(benchmark._plot_example(), matplotlib.figure.Figure)
 
 
 def test_benchmark_coverage():
