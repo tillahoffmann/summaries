@@ -20,16 +20,35 @@ class NegativeBinomialDistribution:
         self._logp = np.log(self.p)
         self._log1mp = np.log1p(-self.p)
 
-    def logpmf(self, x):
+    def log_prob(self, x):
         return x * self._log1mp + self.n * self._logp + special.gammaln(x + self.n) \
             - self._gammaln_n - special.gammaln(x + 1)
 
-    def rvs(self, size=None):
+    def sample(self, size=None):
         return np.random.negative_binomial(self.n, self.p, size)
 
     @property
     def mean(self):
         return self.n * (1 - self.p) / self.p
+
+
+class UniformDistribution:
+    """
+    Uniform distribution.
+    """
+    def __init__(self, lower, upper):
+        self.lower = lower
+        self.upper = upper
+
+    def log_prob(self, x):
+        return -np.log(self.upper - self.lower)
+
+    def sample(self, size=None):
+        return np.random.uniform(self.lower, self.upper, size)
+
+    @property
+    def mean(self):
+        return (self.upper + self.lower) / 2
 
 
 # Construct "nice" likelihoods given bivariate parameters in the sense that each likelihood is
@@ -39,6 +58,8 @@ LIKELIHOODS = [
     lambda t1, t2: NegativeBinomialDistribution(1 + t1, 0.1 + 0.8 * np.sqrt(t1 * t2)),
     lambda t1, t2: NegativeBinomialDistribution(1 + np.sqrt(t1 * t2), 0.1 + 0.8 * t1),
     lambda t1, t2: NegativeBinomialDistribution(1 / (1 + t1), 0.1 + 0.8 * t2),
+    lambda *_: UniformDistribution(0, 1),
+    lambda *_: UniformDistribution(0, 1),
 ]
 
 
@@ -47,7 +68,7 @@ def sample(likelihoods: list[typing.Callable], theta: np.ndarray, size: tuple = 
     Draw samples with a given size from each likelihood for fixed parameters.
 
     Args:
-        likelihoods: Iterable of functions that return likelihoods implementing `rvs`.
+        likelihoods: Iterable of functions that return likelihoods implementing `sample`.
         theta: Parameter values at which to sample.
         size: Sample shape.
 
@@ -55,7 +76,7 @@ def sample(likelihoods: list[typing.Callable], theta: np.ndarray, size: tuple = 
         samples: Samples of shape `(len(likelihoods), *size)`.
     """
     return np.asarray([
-        likelihood(*theta).rvs(size) for likelihood in likelihoods
+        likelihood(*theta).sample(size) for likelihood in likelihoods
     ])
 
 
@@ -65,7 +86,7 @@ def evaluate_log_posterior(likelihoods: list[typing.Callable], samples: np.ndarr
     Evaluate the posterior numerically.
 
     Args:
-        likelihoods: Iterable of functions that return likelihoods implementing `logpmf`.
+        likelihoods: Iterable of functions that return likelihoods implementing `log_prob`.
         samples: Samples at which to evaluate the likelihood.
         thetas: Locations at which to evaluate the posterior (assumed to cover the whole parameter
             space).
@@ -76,7 +97,7 @@ def evaluate_log_posterior(likelihoods: list[typing.Callable], samples: np.ndarr
     cumulative = 0
     tt = np.meshgrid(*thetas)
     for likelihood, x in zip(likelihoods, samples):
-        cumulative = cumulative + likelihood(*(t[..., None] for t in tt)).logpmf(x).sum(axis=-1)
+        cumulative = cumulative + likelihood(*(t[..., None] for t in tt)).log_prob(x).sum(axis=-1)
 
     # Subtract maximum for numerical stability and normalize if desired.
     cumulative -= cumulative.max()
@@ -107,14 +128,17 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     fig, axes = plt.subplots(1, 2, sharex=True, sharey=True)
     ax1, ax2 = axes
 
-    for i, (likelihood, x) in enumerate(zip(likelihoods, xs)):
+    for i, (likelihood_fun, x) in enumerate(zip(likelihoods, xs)):
         color = f'C{i}'
-        # Add a trailing dimension so we can evaluate the logpmf in a batch.
-        mean = likelihood(*(t[..., None] for t in tt)).mean.squeeze()
+        # Add a trailing dimension so we can evaluate the log probability in a batch.
+        likelihood = likelihood_fun(*(t[..., None] for t in tt))
+        if isinstance(likelihood, UniformDistribution):
+            continue
+        mean = likelihood.mean.squeeze()
         ax1.contour(*tt, mean, levels=[x.mean()], colors=color)
 
         # Show the posterior for each likelihood individually.
-        log_posterior = evaluate_log_posterior([likelihood], [x], [lin1, lin2], False)
+        log_posterior = evaluate_log_posterior([likelihood_fun], [x], [lin1, lin2], False)
         ax2.contourf(*tt, log_posterior, alpha=.15, colors=color, levels=[-2, 0])
 
     # And for the full posterior.

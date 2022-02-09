@@ -99,8 +99,18 @@ def test_negative_binomial_distribution():
     p = .3
     dist1 = stats.nbinom(n, p)
     dist2 = benchmark.NegativeBinomialDistribution(n, p)
-    x = dist2.rvs()
-    np.testing.assert_allclose(dist1.logpmf(x), dist2.logpmf(x))
+    x = dist2.sample()
+    np.testing.assert_allclose(dist1.logpmf(x), dist2.log_prob(x))
+    np.testing.assert_allclose(dist1.mean(), dist2.mean)
+
+
+def test_uniform_distribution():
+    lower = 3
+    upper = 5
+    dist1 = stats.uniform(lower, upper - lower)
+    dist2 = benchmark.UniformDistribution(lower, upper)
+    x = dist2.sample()
+    np.testing.assert_allclose(dist1.logpdf(x), dist2.log_prob(x))
     np.testing.assert_allclose(dist1.mean(), dist2.mean)
 
 
