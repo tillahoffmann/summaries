@@ -187,3 +187,14 @@ def evaluate_credible_level(density: np.ndarray, alpha: float) -> float:
     cum = np.cumsum(density)
     i = np.argmax(cum > (1 - alpha) * cum[-1])
     return density[i]
+
+
+def whiten_features(features: np.ndarray) -> np.ndarray:
+    """
+    Whiten the features such that they have zero mean and identity variance.
+    """
+    features = features - features.mean(axis=0, keepdims=True)
+    cov = np.atleast_2d(np.cov(features, rowvar=False))
+    cholesky = np.linalg.cholesky(cov)
+    inverse_cholesky = np.linalg.inv(cholesky)
+    return features @ inverse_cholesky.T

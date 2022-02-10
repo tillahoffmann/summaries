@@ -77,3 +77,11 @@ def test_trapznd():
     assert pdf.shape == (101, 100)
     norm = summaries.trapznd(pdf, *lins)
     assert abs(norm - 1) < 1e-3
+
+
+@pytest.mark.parametrize('p', [1, 3])
+def test_whiten_features(p):
+    cov = np.atleast_2d(stats.wishart(10, np.eye(p)).rvs())
+    x = np.random.multivariate_normal(np.zeros(p), cov, 1000)
+    y = summaries.whiten_features(x)
+    np.testing.assert_allclose(np.cov(y, rowvar=False), np.eye(p), atol=1e-9)
