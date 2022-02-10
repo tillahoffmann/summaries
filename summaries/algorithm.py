@@ -200,8 +200,10 @@ class FearnheadAlgorithm(NearestNeighborAlgorithm, CompressorMixin):
     def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True, **kwargs) \
             -> typing.Tuple[np.ndarray, dict]:
         # Project into the feature space, then run as usual.
-        data = data.reshape((data.shape[0], -1))
-        data = self.predictor.predict(data)
+        data = self.get_compressor(data)(data)
         samples, info = super().sample(data, num_samples, show_progress, **kwargs)
         info['predictors'] = data
         return samples, info
+
+    def get_compressor(self, _: np.ndarray) -> typing.Callable:
+        return lambda data: self.predictor.predict(data.reshape(data.shape[0], -1))
