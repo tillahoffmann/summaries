@@ -65,7 +65,7 @@ ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_da
 
 # Run inference on benchmark data ------------------------------------------------------------------
 
-ALGORITHMS = naive nunes stan fearnhead fearnhead_preprocessed
+ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
 # Dataset to evaluate on.
 MODE ?= test
 # Dataset to use as the reference table.

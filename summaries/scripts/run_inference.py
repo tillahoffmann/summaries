@@ -46,8 +46,19 @@ class _Args(argparse.Namespace):
     output: str
 
 
+class ListAlgorithmsAction(argparse.Action):
+    """
+    Action to list all available algorithms.
+    """
+    def __call__(self, parser: argparse.ArgumentParser, *args, **kwargs):  # pragma: no cover
+        print(' '.join(ALGORITHMS))
+        parser.exit()
+
+
 def __main__(args=None):
     parser = argparse.ArgumentParser()
+    parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
+                        nargs=0)
     parser.add_argument('--seed', type=int, help='seed for the random number generator')
     parser.add_argument('--options', help='JSON options for the sampler', type=json.loads,
                         default={})
