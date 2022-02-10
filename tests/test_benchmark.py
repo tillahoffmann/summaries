@@ -53,3 +53,22 @@ def test_uniform_distribution():
     x = dist2.sample()
     np.testing.assert_allclose(dist1.logpdf(x), dist2.log_prob(x))
     np.testing.assert_allclose(dist1.mean(), dist2.mean)
+
+
+def test_benchmark_stan_model():
+    # Generate some data.
+    theta = np.random.uniform(0, 1, 2)
+    num_samples = 7
+    xs = benchmark.sample(benchmark.LIKELIHOODS, theta, num_samples)
+    model = benchmark.StanBenchmarkAlgorithm('summaries/benchmark.stan')
+    samples, info = model.sample(np.asarray([xs, xs, xs]), 1000)
+
+    # Validate the output and ensure the likelihood is the same in python and stan.
+    assert samples.shape == (3, 1000, 2)  # TODO: actually respect the number of samples.
+    fit = info['fits'][0]
+    variables = fit.stan_variables()
+    for i, (part, x, likelihood) in enumerate(zip(variables['parts'].T, xs, benchmark.LIKELIHOODS)):
+        likelihood = likelihood(variables['t1'][:, None], variables['t2'][:, None])
+        log_prob = likelihood.log_prob(x).sum(axis=-1)
+        np.testing.assert_allclose(part, log_prob, rtol=1e-5,
+                                   err_msg=f'mismatch for likelihood {i}')

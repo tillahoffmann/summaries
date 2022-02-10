@@ -1,6 +1,9 @@
+import os
+import pickle
 import pytest
+from summaries import benchmark
 from summaries.scripts import generate_benchmark_data, run_inference
-from unittest import mock
+import tempfile
 
 
 @pytest.mark.parametrize('algorithm', run_inference.ALGORITHMS)
@@ -8,41 +11,43 @@ def test_run_inference(algorithm: str):
     num_train = 20
     num_test = 7
     num_samples = 13
+    num_params = 2
+    num_features = len(benchmark.LIKELIHOODS)
 
     assert num_train >= num_samples, 'cannot take more samples than there are training points'
 
-    with mock.patch('builtins.open') as open_, mock.patch('pickle.dump') as dump_, \
-            mock.patch('pickle.load') as load_:
-        # Generate data and mock loading (https://stackoverflow.com/a/23207767/1150961).
-        generate_benchmark_data.__main__([str(num_train), 'some_train_path.pkl'])
-        generate_benchmark_data.__main__([str(num_test), 'some_train_path.pkl'])
-        train, test = [result for (result, _), _ in dump_.call_args_list]
-        num_features = test['xs'].shape[1]
-        num_params = test['theta'].shape[1]
-        load_.side_effect = [train, test]
+    with tempfile.TemporaryDirectory() as directory:
+        train_path = os.path.join(directory, 'train.pkl')
+        generate_benchmark_data.__main__([str(num_train), train_path])
+        test_path = os.path.join(directory, 'test.pkl')
+        generate_benchmark_data.__main__([str(num_test), test_path])
 
         # Run inference.
+        output_path = os.path.join(directory, 'output.pkl')
         run_inference.__main__([
             '--seed=0',
             algorithm,
-            'train.pkl',
-            'test.pkl',
+            train_path,
+            test_path,
             str(num_samples),
-            'output.pkl',
+            output_path,
         ])
-        open_.assert_called_with('output.pkl', 'wb')
-        assert open_.call_count == 5
-        assert dump_.call_count == 3
+        with open(output_path, 'rb') as fp:
+            result = pickle.load(fp)
 
-    # Get the results.
-    (result, _), _ = dump_.call_args
     assert result['posterior_samples'].shape == (num_test, num_samples, num_params)
 
+    # Check auxiliary information.
+    info = result['info']
     if algorithm == 'nunes':
-        info = result['info']
         assert info['best_loss'].shape == (num_test,)
         assert info['best_mask'].shape == (num_test, num_features)
         assert info['masks'].shape == (2 ** num_features - 1, num_features)
         assert info['losses'].shape == (2 ** num_features - 1, num_test)
-    elif algorithm not in {'naive'}:
+    elif algorithm == 'stan':
+        assert len(info['fits']) == num_test
+    elif algorithm == 'naive':
+        assert info['distances'].shape == (num_test, num_samples)
+        assert info['indices'].shape == (num_test, num_samples)
+    else:
         raise NotImplementedError(algorithm)

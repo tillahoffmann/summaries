@@ -2,7 +2,7 @@ import argparse
 import json
 import numpy as np
 import pickle
-import summaries
+from .. import algorithm, benchmark
 
 
 def evaluate_candidate_features(data):
@@ -15,12 +15,16 @@ def evaluate_candidate_features(data):
 ALGORITHMS = {
     'naive': (
         evaluate_candidate_features,
-        lambda d, p, _: summaries.NearestNeighborAlgorithm(d, p)
+        lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p)
     ),
     'nunes': (
         evaluate_candidate_features,
-        lambda d, p, _: summaries.NunesAlgorithm(d, p)
+        lambda d, p, _: algorithm.NunesAlgorithm(d, p)
     ),
+    'stan': (
+        None,
+        lambda *_: benchmark.StanBenchmarkAlgorithm()
+    )
 }
 
 
@@ -64,11 +68,11 @@ def __main__(args=None):
         train_data = preprocessor(train_data)
         test_data = preprocessor(test_data)
 
-    algorithm: summaries.Algorithm = algorithm_cls(train_data, train_params, args.options)
-    posterior_samples, info = algorithm.sample(test_data, args.num_samples)
+    alg: algorithm.Algorithm = algorithm_cls(train_data, train_params, args.options)
+    posterior_samples, info = alg.sample(test_data, args.num_samples)
 
     # Verify the shape of the posterior samples and save the result.
-    expected_shape = (test['theta'].shape[0], args.num_samples, algorithm.num_params)
+    expected_shape = (test['theta'].shape[0], args.num_samples, alg.num_params)
     assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
         f'{expected_shape} but got {posterior_samples.shape}'
 

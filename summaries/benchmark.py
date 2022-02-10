@@ -1,8 +1,11 @@
+import cmdstanpy
 import matplotlib.figure
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy import special
+from tqdm import tqdm
 import typing
+from .algorithm import Algorithm
 from .util import label_axes, trapznd
 
 
@@ -55,9 +58,9 @@ LIKELIHOODS = [
     lambda t1, t2: NegativeBinomialDistribution(1 + t1, 0.1 + 0.8 * np.sqrt(t1 * t2)),
     lambda t1, t2: NegativeBinomialDistribution(1 + np.sqrt(t1 * t2), 0.1 + 0.8 * t1),
     lambda t1, t2: NegativeBinomialDistribution(1 / (1 + t1), 0.1 + 0.8 * t2),
-    lambda *_: UniformDistribution(0, 1),
-    lambda *_: UniformDistribution(0, 1),
 ]
+NUM_NOISE_FEATURES = 2
+LIKELIHOODS.extend([lambda *_: UniformDistribution(0, 1) for _ in range(NUM_NOISE_FEATURES)])
 
 
 def sample(likelihoods: list[typing.Callable], theta: np.ndarray, size: tuple = None) -> np.ndarray:
@@ -150,3 +153,41 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     label_axes(axes, loc='top right')
     fig.tight_layout()
     return fig
+
+
+class StanBenchmarkAlgorithm(Algorithm):
+    """
+    Stan implementation of the benchmark model.
+    """
+    def __init__(self, path=None):
+        self.path = path or __file__.replace('.py', '.stan')
+        self.model = cmdstanpy.CmdStanModel(stan_file=self.path)
+
+    def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True, **kwargs) \
+            -> typing.Tuple[np.ndarray, dict]:
+        # Validate the data.
+        _, num_likelihoods, num_observations = data.shape
+        assert num_likelihoods == len(LIKELIHOODS)
+        data = data[:, :num_likelihoods - NUM_NOISE_FEATURES]
+
+        samples = []
+        fits = []
+        for x in tqdm(data) if show_progress else data:
+            # Fit the model.
+            stan_data = {
+                'n': num_observations,
+                'p': len(LIKELIHOODS) - NUM_NOISE_FEATURES,
+                'x': x.astype(int),
+            }
+            fit = self.model.sample(stan_data, chains=1, iter_sampling=num_samples,
+                                    show_progress=False)
+
+            # Extract the samples and store the fits.
+            samples.append(np.transpose([fit.stan_variable('t1'), fit.stan_variable('t2')]))
+            fits.append(fit)
+
+        return np.asarray(samples), {'fits': fits}
+
+    @property
+    def num_params(self):
+        return 2
