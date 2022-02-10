@@ -136,3 +136,5 @@ workspace/
 temp/
 data/
 figures/
+summaries/benchmark
+summaries/benchmark.hpp
