@@ -61,7 +61,8 @@ BENCHMARK_SEED_debug = 3
 benchmark_data : ${BENCHMARK_TARGETS}
 
 ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_data.py summaries/benchmark.py
-	python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
+	python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} \
+		--num_observations=3 ${BENCHMARK_SIZE_$*} $@
 
 # Run inference on benchmark data ------------------------------------------------------------------
 
