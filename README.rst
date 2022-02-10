@@ -7,3 +7,4 @@ summaries
 .. toctree::
 
   docs/examples.rst
+  docs/algorithms.rst

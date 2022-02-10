@@ -5,13 +5,22 @@ import pickle
 import summaries
 
 
-def naive_rejection_sampler(train_data: dict, _: dict) -> summaries.RejectionAlgorithm:
-    return summaries.RejectionAlgorithm(train_data['xs'], train_data['theta'],
-                                        transform=lambda x: x.mean(axis=-1))
+def evaluate_candidate_features(data):
+    """
+    Evaluate simple candidate features.
+    """
+    return data.mean(axis=-1)
 
 
 ALGORITHMS = {
-    'naive': naive_rejection_sampler,
+    'naive': (
+        evaluate_candidate_features,
+        lambda d, p, _: summaries.NearestNeighborAlgorithm(d, p)
+    ),
+    'nunes': (
+        evaluate_candidate_features,
+        lambda d, p, _: summaries.NunesAlgorithm(d, p)
+    ),
 }
 
 
@@ -41,24 +50,34 @@ def __main__(args=None):
 
     # Load the training and test data.
     with open(args.train, 'rb') as fp:
-        train_data = pickle.load(fp)
+        train = pickle.load(fp)
+        train_data = train['xs']
+        train_params = train['theta']
     with open(args.test, 'rb') as fp:
-        test_data = pickle.load(fp)
+        test = pickle.load(fp)
+        test_data = test['xs']
+        test_params = test['theta']
 
-    # Create a sampler and run it on the entire test set.
-    algorithm: summaries.Algorithm = ALGORITHMS[args.algorithm](train_data, args.options)
-    posterior_samples = algorithm.sample_posterior(test_data['xs'], args.num_samples)
+    # Get a sampling algorithm and optional preprocessor.
+    preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
+    if preprocessor:
+        train_data = preprocessor(train_data)
+        test_data = preprocessor(test_data)
+
+    algorithm: summaries.Algorithm = algorithm_cls(train_data, train_params, args.options)
+    posterior_samples, info = algorithm.sample(test_data, args.num_samples)
 
     # Verify the shape of the posterior samples and save the result.
-    expected_shape = (test_data['theta'].shape[0], args.num_samples, algorithm.num_params)
+    expected_shape = (test['theta'].shape[0], args.num_samples, algorithm.num_params)
     assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
         f'{expected_shape} but got {posterior_samples.shape}'
 
     with open(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),
-            'theta': test_data['theta'],  # Copy over the true parameter values for easy comparison.
+            'theta': test_params,  # Copy over the true parameter values for easy comparison.
             'posterior_samples': posterior_samples,
+            'info': info,
         }, fp)
 
 
