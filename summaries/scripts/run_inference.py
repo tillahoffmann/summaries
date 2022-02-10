@@ -30,7 +30,7 @@ ALGORITHMS = {
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
     'fearnhead_preprocessed': (
-        None,
+        evaluate_candidate_features,
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
 }
