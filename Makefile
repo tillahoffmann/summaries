@@ -65,15 +65,15 @@ ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_da
 
 # Run inference on benchmark data ------------------------------------------------------------------
 
-ALGORITHMS = naive
+ALGORITHMS = naive nunes
 # Dataset to evaluate on.
 MODE ?= test
 # Dataset to use as the reference table.
 REFERENCE ?= train
 INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
-NUM_SAMPLES = 113
+NUM_SAMPLES ?= 2000
 
 inference : ${INFERENCE_TARGETS}
-${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl
+${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl summaries/algorithm.py
 	python -m summaries.scripts.run_inference $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
 		${NUM_SAMPLES} $@
