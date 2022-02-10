@@ -1,3 +1,4 @@
+import matplotlib.colors
 from matplotlib import pyplot as plt
 import numpy as np
 import pytest
@@ -85,3 +86,12 @@ def test_whiten_features(p):
     x = np.random.multivariate_normal(np.zeros(p), cov, 1000)
     y = summaries.whiten_features(x)
     np.testing.assert_allclose(np.cov(y, rowvar=False), np.eye(p), atol=1e-9)
+
+
+def test_alpha_cmap():
+    cmap = summaries.util.alpha_cmap(0)
+    levels = [0., .3, .7, 1.]
+    for level in levels:
+        color = cmap(level)
+        assert color[:-1] == matplotlib.colors.to_rgb('C0')
+        assert abs(color[-1] - level) < 0.01

@@ -198,3 +198,26 @@ def whiten_features(features: np.ndarray) -> np.ndarray:
     cholesky = np.linalg.cholesky(cov)
     inverse_cholesky = np.linalg.inv(cholesky)
     return features @ inverse_cholesky.T
+
+
+def alpha_cmap(color, name: str = None, **kwargs) -> matplotlib.colors.Colormap:
+    """
+    Create a monochrome colormap that maps scalars to varying transparencies.
+
+    Args:
+        color : Base color to use for the colormap.
+        name : Name of the colormap.
+        **kwargs : dict
+        Keyword arguments passed to :meth:`mpl.colors.LinearSegmentedColormap.from_list`.
+    Returns
+    -------
+    cmap : mpl.colors.Colormap
+        Colormap encoding scalars as transparencies.
+    """
+    if isinstance(color, int):
+        color = f'C{color}'
+    name = name or f'alpha_cmap_{color}'
+    return matplotlib.colors.LinearSegmentedColormap.from_list(name, [
+        matplotlib.colors.to_rgba(color, alpha=0.0),
+        matplotlib.colors.to_rgba(color, alpha=1.0),
+    ])
