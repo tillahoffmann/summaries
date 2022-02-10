@@ -13,6 +13,10 @@ def evaluate_candidate_features(data):
 
 
 ALGORITHMS = {
+    'stan': (
+        None,
+        lambda *_: benchmark.StanBenchmarkAlgorithm()
+    ),
     'naive': (
         evaluate_candidate_features,
         lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p)
@@ -21,10 +25,14 @@ ALGORITHMS = {
         evaluate_candidate_features,
         lambda d, p, _: algorithm.NunesAlgorithm(d, p)
     ),
-    'stan': (
+    'fearnhead': (
         None,
-        lambda *_: benchmark.StanBenchmarkAlgorithm()
-    )
+        lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
+    ),
+    'fearnhead_preprocessed': (
+        None,
+        lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
+    ),
 }
 
 
@@ -41,7 +49,8 @@ class _Args(argparse.Namespace):
 def __main__(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, help='seed for the random number generator')
-    parser.add_argument('--options', help='JSON options for the sampler', type=json.loads)
+    parser.add_argument('--options', help='JSON options for the sampler', type=json.loads,
+                        default={})
     parser.add_argument('algorithm', help='algorithm to run', choices=ALGORITHMS)
     parser.add_argument('train', help='training data path')
     parser.add_argument('test', help='test data path')

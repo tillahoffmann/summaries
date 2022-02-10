@@ -1,6 +1,7 @@
 import itertools as it
 import numpy as np
 from scipy import spatial
+from sklearn import linear_model
 from tqdm import tqdm
 import typing
 from .util import estimate_entropy
@@ -90,7 +91,7 @@ class NearestNeighborAlgorithm(ABCAlgorithm):
             is the number of simulatiosn and `q` is the number of parameters.
     """
     def __init__(self, train_data: np.ndarray, train_params: np.ndarray):
-        super(NearestNeighborAlgorithm, self).__init__(train_data, train_params)
+        super().__init__(train_data, train_params)
         self.reference = spatial.KDTree(self.train_data)
 
     def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True, **kwargs) \
@@ -182,3 +183,25 @@ class NunesAlgorithm(SubsetSelectionAlgorithm):
     def evaluate_loss(self, samples):
         # Estimate the entropy independently for each element in the batch.
         return np.asarray([estimate_entropy(x) for x in samples])
+
+
+class FearnheadAlgorithm(NearestNeighborAlgorithm, CompressorMixin):
+    """
+    Projection algorithm minimising the L2 loss on the training data.
+    """
+    def __init__(self, train_data: np.ndarray, train_params: np.ndarray, **kwargs):
+        self._raw_train_data = train_data
+        # Reshape the training data so it is a matrix, fit, and predict the means.
+        train_data = train_data.reshape((train_data.shape[0], -1))
+        self.predictor = linear_model.LinearRegression(**kwargs)
+        self.predictor.fit(train_data, train_params)
+        super().__init__(self.predictor.predict(train_data), train_params)
+
+    def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True, **kwargs) \
+            -> typing.Tuple[np.ndarray, dict]:
+        # Project into the feature space, then run as usual.
+        data = data.reshape((data.shape[0], -1))
+        data = self.predictor.predict(data)
+        samples, info = super().sample(data, num_samples, show_progress, **kwargs)
+        info['predictors'] = data
+        return samples, info

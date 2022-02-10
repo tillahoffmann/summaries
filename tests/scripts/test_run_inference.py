@@ -46,8 +46,10 @@ def test_run_inference(algorithm: str):
         assert info['losses'].shape == (2 ** num_features - 1, num_test)
     elif algorithm == 'stan':
         assert len(info['fits']) == num_test
-    elif algorithm == 'naive':
+    elif algorithm == 'naive' or algorithm.startswith('fearnhead'):
         assert info['distances'].shape == (num_test, num_samples)
         assert info['indices'].shape == (num_test, num_samples)
+        assert not algorithm.startswith('fearnhead') \
+            or info['predictors'].shape == (num_test, num_params)
     else:
         raise NotImplementedError(algorithm)
