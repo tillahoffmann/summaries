@@ -158,8 +158,12 @@ def label_axes(axes: list[matplotlib.axes.Axes], labels: list[str] = None, loc: 
         offset: Offset for positioning labels in axes coordinates.
         label_offset: Index by which to offset labels.
     """
+    if isinstance(axes, matplotlib.axes.Axes):
+        axes = [axes]
     if labels is None:
         labels = [f'({x})' for x in string.ascii_lowercase]
+    elif isinstance(labels, str):
+        labels = [labels]
     if label_offset is not None:
         labels = labels[label_offset:]
     if isinstance(offset, float):
@@ -241,3 +245,10 @@ def alpha_cmap(color, name: str = None, **kwargs) -> matplotlib.colors.Colormap:
         matplotlib.colors.to_rgba(color, alpha=0.0),
         matplotlib.colors.to_rgba(color, alpha=1.0),
     ])
+
+
+def softplus(x):
+    r"""
+    Evaluate the softplus function :math:`\log\left(1+\exp(x)\right)`
+    """
+    return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0)

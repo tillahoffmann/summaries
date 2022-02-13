@@ -1,7 +1,6 @@
 import os
 import pickle
 import pytest
-from summaries import benchmark
 from summaries.scripts import generate_benchmark_data, run_inference
 import tempfile
 
@@ -12,7 +11,7 @@ def test_run_inference(algorithm: str):
     num_test = 7
     num_samples = 13
     num_params = 2
-    num_features = len(benchmark.LIKELIHOODS)
+    num_features = 4
 
     assert num_train >= num_samples, 'cannot take more samples than there are training points'
 
@@ -44,12 +43,12 @@ def test_run_inference(algorithm: str):
         assert info['best_mask'].shape == (num_test, num_features)
         assert info['masks'].shape == (2 ** num_features - 1, num_features)
         assert info['losses'].shape == (2 ** num_features - 1, num_test)
-    elif algorithm == 'stan':
-        assert len(info['fits']) == num_test
     elif algorithm == 'naive' or algorithm.startswith('fearnhead'):
         assert info['distances'].shape == (num_test, num_samples)
         assert info['indices'].shape == (num_test, num_samples)
         assert not algorithm.startswith('fearnhead') \
             or info['predictors'].shape == (num_test, num_params)
+    elif algorithm == 'stan':
+        pass
     else:
         raise NotImplementedError(algorithm)

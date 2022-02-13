@@ -75,6 +75,7 @@ INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
 NUM_SAMPLES ?= 2000
 
 inference : ${INFERENCE_TARGETS}
-${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl summaries/algorithm.py
+${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
+		summaries/algorithm.py summaries/scripts/run_inference.py
 	python -m summaries.scripts.run_inference $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
 		${NUM_SAMPLES} $@
