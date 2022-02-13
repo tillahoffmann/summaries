@@ -67,6 +67,7 @@ ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_da
 # Run inference on benchmark data ------------------------------------------------------------------
 
 ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
+ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
 # Dataset to evaluate on.
 MODE ?= test
 # Dataset to use as the reference table.
@@ -77,5 +78,5 @@ NUM_SAMPLES ?= 2000
 inference : ${INFERENCE_TARGETS}
 ${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
 		summaries/algorithm.py summaries/scripts/run_inference.py
-	python -m summaries.scripts.run_inference $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
-		${NUM_SAMPLES} $@
+	python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
+		workspace/${REFERENCE}.pkl workspace/${MODE}.pkl ${NUM_SAMPLES} $@

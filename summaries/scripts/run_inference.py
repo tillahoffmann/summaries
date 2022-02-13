@@ -64,7 +64,9 @@ def __main__(args=None):
     parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
                         nargs=0)
     parser.add_argument('--seed', type=int, help='seed for the random number generator')
-    parser.add_argument('--options', help='JSON options for the sampler', type=json.loads,
+    parser.add_argument('--cls_options', help='JSON options for the constructor', type=json.loads,
+                        default={})
+    parser.add_argument('--sample_options', help='JSON options for sampling', type=json.loads,
                         default={})
     parser.add_argument('algorithm', help='algorithm to run', choices=ALGORITHMS)
     parser.add_argument('train', help='training data path')
@@ -87,8 +89,8 @@ def __main__(args=None):
     train_features = preprocessor(train['data'])
     test_features = preprocessor(test['data'])
 
-    alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'], args.options)
-    posterior_samples, info = alg.sample(test_features, args.num_samples)
+    alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'], args.cls_options)
+    posterior_samples, info = alg.sample(test_features, args.num_samples, **args.sample_options)
 
     # Verify the shape of the posterior samples and save the result.
     expected_shape = (len(test['params']), args.num_samples, alg.num_params)
