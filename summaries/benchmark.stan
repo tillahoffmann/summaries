@@ -11,18 +11,16 @@ data {
 }
 
 parameters {
-    vector[2] theta;
+    real<lower=0> radius;
+    real<lower=-1, upper=1> corr;
 }
 
 transformed parameters {
     // Container for likelihood contributions.
     vector[n] parts;
-    real t1 = theta[1];
-    real t2 = theta[2];
-    real<lower=0> radius = sqrt(t1 ^ 2 + t2 ^ 2);
     real loc = 2.0 + radius;
     real<lower=0> scale = sqrt(softplus(25 - loc ^ 2));
-    real corr = t1 / radius;
+
     cov_matrix[2] covp;
     cov_matrix[2] covm;
     vector[2] locp = rep_vector(loc, 2);
@@ -46,6 +44,21 @@ transformed parameters {
 }
 
 model {
-    theta ~ normal(0, 1);
+    // This implies that the square of the radius is a chi_square(2) distribution.
+    target += log(radius) - radius ^ 2 / 2;
+    // This implies we sample a angle uniformly at random and then evaluate the sine. To avoid the
+    // nastiness of circular boundaries, we instead deal with the sine directly.
+    target += -log1p(-corr ^ 2);
     target += sum(parts);
+}
+
+generated quantities {
+    // Evaluate the parameters of interest in generated quantities so we don't accidentally use them
+    // in the likelihood.
+    vector[2] theta;
+    theta[1] = radius * corr;
+    // The second parameter can be either positive or negative because the likelihood does not
+    // depend on the sign. We only sample one mode to make things easier. Here, we "recreate" the
+    // second mode.
+    theta[2] = radius * sqrt(1 - corr ^ 2) * (2 * bernoulli_rng(0.5) - 1);
 }

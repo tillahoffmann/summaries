@@ -48,7 +48,7 @@ def test_benchmark_stan_model():
     assert samples.shape == (3, 1000, 2)
     fit = info['fits'][0]
     variables = fit.stan_variables()
-    likelihood = benchmark.LIKELIHOODS['gaussian_mixture'](variables['t1'], variables['t2'])
+    likelihood = benchmark.LIKELIHOODS['gaussian_mixture'](*variables['theta'].T)
     # Make sure the parameters of the likelihood are the same.
     np.testing.assert_allclose(variables['covp'], likelihood._cov_plus)
     np.testing.assert_allclose(variables['covm'], likelihood._cov_minus)
