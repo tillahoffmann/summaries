@@ -39,6 +39,26 @@ def estimate_entropy(x: np.ndarray, k: int = 4, method: str = 'singh') -> float:
         raise NotImplementedError(method)
 
 
+def estimate_divergence(x: np.ndarray, y: np.ndarray, k: int = 4):
+    """
+    Estimate the Kullback Leibler divergence between two point clouds.
+    """
+    # Validate input.
+    n, p = x.shape
+    m, q = y.shape
+    assert p == q, 'x and y must have the same trailing dimension'
+
+    # Build nearest neighbor trees and query distances.
+    xtree = spatial.KDTree(x)
+    ytree = spatial.KDTree(y)
+
+    dxx, _ = xtree.query(x, k=k + 1)
+    dxx = dxx[:, -1]
+    dxy, _ = ytree.query(x, k=k)
+    dxy = dxy[:, -1]
+    return p * np.mean(np.log(dxy / dxx)) + np.log(m / (n - 1))
+
+
 def estimate_mutual_information(
         x: np.ndarray, y: np.ndarray, normalize: typing.Union[bool, str] = False,
         method: str = 'singh') -> float:

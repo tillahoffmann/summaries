@@ -95,3 +95,20 @@ def test_alpha_cmap():
         color = cmap(level)
         assert color[:-1] == matplotlib.colors.to_rgb('C0')
         assert abs(color[-1] - level) < 0.01
+
+
+@pytest.mark.parametrize('p', [1, 2])
+def test_estimate_divergence(p):
+    n = 100000
+    m = 100000
+    loc1 = 0
+    loc2 = 1.4
+    scale1 = 0.7
+    scale2 = 1.3
+    var1 = scale1 ** 2
+    var2 = scale2 ** 2
+    expected = p * ((loc1 - loc2) ** 2 / var2 + var1 / var2 - 1 - np.log(var1 / var2)) / 2
+    x = np.random.normal(loc1, scale1, (n, p))
+    y = np.random.normal(loc2, scale2, (m, p))
+    actual = summaries.estimate_divergence(x, y, k=7)
+    assert abs(expected - actual) < 0.05
