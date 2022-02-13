@@ -23,6 +23,7 @@ def __main__(args=None):
         data = benchmark.sample(benchmark.LIKELIHOODS, theta, args.num_observations)
         result.setdefault('data', []).append(data)
         result.setdefault('params', []).append(theta)
+    result['params'] = np.asarray(result['params'])
 
     with open(args.output, 'wb') as fp:
         pickle.dump(result, fp)

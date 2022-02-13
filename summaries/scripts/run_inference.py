@@ -98,7 +98,7 @@ def __main__(args=None):
     with open(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),
-            'theta': test['params'],  # Copy over the true parameter values for easy comparison.
+            'params': test['params'],  # Copy over the true parameter values for easy comparison.
             'posterior_samples': posterior_samples,
             'info': info,
         }, fp)
