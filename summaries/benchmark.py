@@ -1,66 +1,62 @@
 import cmdstanpy
 import matplotlib.figure
+import matplotlib.patches
 from matplotlib import pyplot as plt
 import numpy as np
-from scipy import special
 from tqdm import tqdm
 import typing
 from .algorithm import Algorithm
-from .util import label_axes, trapznd
+from .util import label_axes, trapznd, softplus
+from .distributions import Distribution, MultiNormalDistribution, UniformDistribution
 
 
-class NegativeBinomialDistribution:
+class CorrelatedGaussianMixtureDistribution(Distribution):
     """
-    Negative binomial distribution akin to `scipy.stats.nbinom` but faster.
+    Mixture distribution of two correlated multivariate Gaussians such that the data have constant
+    mean, variance, and covariance independent of parameters. But the likelihood is informative of
+    the parameters.
     """
-    def __init__(self, n, p):
-        self.n = n
-        self.p = p
-        self._gammaln_n = special.gammaln(self.n)
-        self._logp = np.log(self.p)
-        self._log1mp = np.log1p(-self.p)
+    def __init__(self, t1: np.ndarray, t2: np.ndarray, epsilon: float = 1e-6) -> None:
+        self.t1 = np.asarray(t1)
+        self.t2 = np.asarray(t2)
+        self.radius = np.sqrt(self.t1 ** 2 + self.t2 ** 2)
+        self.loc = 2 + self.radius
+        self.scale = np.sqrt(softplus(25 - self.loc ** 2))
+        self.corr = self.t1 / self.radius
 
-    def log_prob(self, x):
-        return x * self._log1mp + self.n * self._logp + special.gammaln(x + self.n) \
-            - self._gammaln_n - special.gammaln(x + 1)
+        # Construct location and covariances for the "positive" and "negative" componentns of the
+        # mixture.
+        self._loc_plus = np.ones(2) * self.loc[..., None]
+        self._loc_minus = -np.ones(2) * self.loc[..., None]
+        self._cov_plus = np.ones((2, 2)) * self.scale[..., None, None] ** 2
+        self._cov_plus[..., 0, 1] *= self.corr
+        self._cov_plus[..., 1, 0] *= self.corr
+        self._cov_plus[..., 0, 0] += epsilon
+        self._cov_plus[..., 1, 1] += epsilon
+        self._cov_minus = self._cov_plus.copy()
+        self._cov_minus[..., 0, 1] *= -1
+        self._cov_minus[..., 1, 0] *= -1
+        self._dist_plus = MultiNormalDistribution(self._loc_plus, self._cov_plus)
+        self._dist_minus = MultiNormalDistribution(self._loc_minus, self._cov_minus)
 
-    def sample(self, size=None):
-        return np.random.negative_binomial(self.n, self.p, size)
+    def sample(self, size: tuple = None) -> np.ndarray:
+        x_plus = self._dist_plus.sample(size)
+        x_minus = self._dist_minus.sample(size)
+        return np.where(np.random.choice(2, x_plus.shape[:-1])[..., None], x_plus, x_minus)
 
-    @property
-    def mean(self):
-        return self.n * (1 - self.p) / self.p
-
-
-class UniformDistribution:
-    """
-    Uniform distribution.
-    """
-    def __init__(self, lower, upper):
-        self.lower = lower
-        self.upper = upper
-
-    def log_prob(self, x):
-        return -np.log(self.upper - self.lower)
-
-    def sample(self, size=None):
-        return np.random.uniform(self.lower, self.upper, size)
-
-    @property
-    def mean(self):
-        return (self.upper + self.lower) / 2
+    def log_prob(self, x: np.ndarray) -> np.ndarray:
+        log_prob_plus = self._dist_plus.log_prob(x)
+        log_prob_minus = self._dist_minus.log_prob(x)
+        return np.logaddexp(log_prob_plus, log_prob_minus) - np.log(2)
 
 
-# Construct "nice" likelihoods given bivariate parameters in the sense that each likelihood is
-# well-behaved over the unit box.
-LIKELIHOODS = [
-    lambda t1, t2: NegativeBinomialDistribution(1 + t1, 0.1 + 0.8 * t2),
-    lambda t1, t2: NegativeBinomialDistribution(1 + t1, 0.1 + 0.8 * np.sqrt(t1 * t2)),
-    lambda t1, t2: NegativeBinomialDistribution(1 + np.sqrt(t1 * t2), 0.1 + 0.8 * t1),
-    lambda t1, t2: NegativeBinomialDistribution(1 / (1 + t1), 0.1 + 0.8 * t2),
-]
-NUM_NOISE_FEATURES = 2
-LIKELIHOODS.extend([lambda *_: UniformDistribution(0, 1) for _ in range(NUM_NOISE_FEATURES)])
+LIKELIHOODS = {
+    'gaussian_mixture': CorrelatedGaussianMixtureDistribution,
+    'noise': lambda t1, _: UniformDistribution(
+        np.zeros(np.shape(t1) + (2,)),
+        np.ones(np.shape(t1) + (2,))
+    ),
+}
 
 
 def sample(likelihoods: list[typing.Callable], theta: np.ndarray, size: tuple = None) -> np.ndarray:
@@ -68,16 +64,15 @@ def sample(likelihoods: list[typing.Callable], theta: np.ndarray, size: tuple = 
     Draw samples with a given size from each likelihood for fixed parameters.
 
     Args:
-        likelihoods: Iterable of functions that return likelihoods implementing `sample`.
+        likelihoods: Mapping of functions that return likelihoods implementing `sample`.
         theta: Parameter values at which to sample.
         size: Sample shape.
 
     Returns:
-        samples: Samples of shape `(len(likelihoods), *size)`.
+        samples: Samples of shape `(*size, p)`, where `p` is the sum of the dimensionality of each
+            likelihood.
     """
-    return np.asarray([
-        likelihood(*theta).sample(size) for likelihood in likelihoods
-    ])
+    return {key: value(*theta).sample(size) for key, value in likelihoods.items()}
 
 
 def evaluate_log_posterior(likelihoods: list[typing.Callable], samples: np.ndarray,
@@ -93,11 +88,16 @@ def evaluate_log_posterior(likelihoods: list[typing.Callable], samples: np.ndarr
         normalize: Whether to normalize the likelihood.
     """
     # Evaluate the cumulative log likelihood.
-    assert len(likelihoods) == len(samples)
+    missing = set(samples) - set(likelihoods)
+    assert not missing, f'there is no likelihood for samples: {", ".join(missing)}'
     cumulative = 0
     tt = np.meshgrid(*thetas)
-    for likelihood, x in zip(likelihoods, samples):
-        cumulative = cumulative + likelihood(*(t[..., None] for t in tt)).log_prob(x).sum(axis=-1)
+    for key, x in samples.items():
+        likelihood = likelihoods[key](*(t[..., None] for t in tt))
+        log_prob = likelihood.log_prob(x)
+        # Sum over everything that isn't the dimensions of the parameters.
+        axis = tuple(np.arange(len(thetas), log_prob.ndim))
+        cumulative = cumulative + log_prob.sum(axis=axis)
 
     # Subtract maximum for numerical stability and normalize if desired.
     cumulative -= cumulative.max()
@@ -116,41 +116,45 @@ def _plot_example(likelihoods: list = None, n: int = 10, theta: np.ndarray = Non
     """
     # Validate arguments and draw a sample.
     likelihoods = likelihoods or LIKELIHOODS
-    theta = (0.2, 0.5) if theta is None else theta
+    theta = (1, 0.5) if theta is None else theta
     xs = sample(likelihoods, theta, n)
-    assert xs.shape == (len(likelihoods), n)
 
     # We use a different number of elements to raise a ValueError if we get the axes wrong.
-    lin1 = np.linspace(0, 1, 100)
-    lin2 = np.linspace(0, 1, 100)
+    lin1 = np.linspace(-2, 2, 100)
+    lin2 = np.linspace(-2, 2, 101)
     tt = np.asarray(np.meshgrid(lin1, lin2))
 
-    fig, axes = plt.subplots(1, 2, sharex=True, sharey=True)
-    ax1, ax2 = axes
+    fig, (ax1, ax2) = plt.subplots(1, 2)
 
-    for i, (likelihood_fun, x) in enumerate(zip(likelihoods, xs)):
-        color = f'C{i}'
-        # Add a trailing dimension so we can evaluate the log probability in a batch.
-        likelihood = likelihood_fun(*(t[..., None] for t in tt))
-        if isinstance(likelihood, UniformDistribution):
-            continue
-        mean = likelihood.mean.squeeze()
-        ax1.contour(*tt, mean, levels=[x.mean()], colors=color)
+    # Show the data.
+    ax1.scatter(*xs['gaussian_mixture'].T, marker='.')
+    ax1.set_aspect('equal')
+    label_axes(ax1, '(a)')
+    ax1.set_xlabel('Data $x_1$')
+    ax1.set_ylabel('Data $x_2$')
 
-        # Show the posterior for each likelihood individually.
-        log_posterior = evaluate_log_posterior([likelihood_fun], [x], [lin1, lin2], False)
-        ax2.contourf(*tt, log_posterior, alpha=.15, colors=color, levels=[-2, 0])
+    # Show the likelihood.
+    likelihood: CorrelatedGaussianMixtureDistribution = likelihoods['gaussian_mixture'](*theta)
+    args = [
+        (likelihood._loc_minus, likelihood._cov_minus),
+        (likelihood._loc_plus, likelihood._cov_plus),
+    ]
+    for loc, cov in args:
+        evals, evecs = np.linalg.eigh(cov)
+        angle = np.arctan2(*evecs[:, 0])  # This may not quite be correct but does the trick.
+        ellipse = matplotlib.patches.Ellipse(loc, *2.5 * np.sqrt(evals), facecolor='none',
+                                             edgecolor='k', ls='--', angle=np.rad2deg(angle))
+        ax1.add_patch(ellipse)
 
-    # And for the full posterior.
+    # Show the posterior distribution.
     log_posterior = evaluate_log_posterior(likelihoods, xs, [lin1, lin2], False)
-    ax2.contour(*tt, log_posterior, colors='k', levels=[-2, -1], linestyles=['--', '-'])
+    ax2.pcolormesh(*tt, np.exp(log_posterior))
+    ax2.scatter(*theta, color='k', marker='X').set_edgecolor('w')
+    ax2.set_ylabel(r'Parameter $\theta_2$')
+    ax2.set_xlabel(r'Parameter $\theta_1$')
 
-    for ax in axes:
-        ax.scatter(*theta, color='k', marker='x')
-        ax.set_aspect('equal')
-        ax.set_xlabel(r'Parameter $\theta_1$')
-    ax1.set_ylabel(r'Parameter $\theta_2$')
-    label_axes(axes, loc='top right')
+    ax2.set_aspect('equal')
+    label_axes(ax2, '(b)', color='w')
     fig.tight_layout()
     return fig
 
@@ -159,34 +163,38 @@ class StanBenchmarkAlgorithm(Algorithm):
     """
     Stan implementation of the benchmark model.
     """
-    def __init__(self, path=None):
+    def __init__(self, path=None, epsilon: float = 1e-6):
         self.path = path or __file__.replace('.py', '.stan')
         self.model = cmdstanpy.CmdStanModel(stan_file=self.path)
+        self.epsilon = epsilon
 
-    def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True, **kwargs) \
-            -> typing.Tuple[np.ndarray, dict]:
-        # Validate the data.
-        _, num_likelihoods, num_observations = data.shape
-        assert num_likelihoods == len(LIKELIHOODS)
-        data = data[:, :num_likelihoods - NUM_NOISE_FEATURES]
-
+    def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True,
+               keep_fits: bool = False, **kwargs) -> typing.Tuple[np.ndarray, dict]:
+        # Set default arguments.
+        kwargs = {
+            'chains': 1,
+            'iter_sampling': num_samples,
+            'show_progress': False,
+            'sig_figs': 9,
+        } | kwargs
         samples = []
-        fits = []
+        info = {}
         for x in tqdm(data) if show_progress else data:
             # Fit the model.
+            x: np.ndarray
             stan_data = {
-                'n': num_observations,
-                'p': len(LIKELIHOODS) - NUM_NOISE_FEATURES,
-                'x': x.astype(int),
+                'n': x.shape[0],
+                'x': x,
+                'epsilon': self.epsilon,
             }
-            fit = self.model.sample(stan_data, chains=1, iter_sampling=num_samples,
-                                    show_progress=False)
+            fit = self.model.sample(stan_data, **kwargs)
 
             # Extract the samples and store the fits.
-            samples.append(np.transpose([fit.stan_variable('t1'), fit.stan_variable('t2')]))
-            fits.append(fit)
+            samples.append(fit.stan_variable('theta'))
+            if keep_fits:
+                info.setdefault('fits', []).append(fit)
 
-        return np.asarray(samples), {'fits': fits}
+        return np.asarray(samples), info
 
     @property
     def num_params(self):

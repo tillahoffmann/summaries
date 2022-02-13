@@ -71,9 +71,21 @@ We consider two summary statistics, the sample mean :math:`\bar x` and the natur
 Benchmark problem
 -----------------
 
-We need a ground truth to compare with if we want to evaluate different methods for extracting useful summary statistics. We consider a model with two parameters :math:`\theta_1` and :math:`\theta_2` drawn uniformly from the unit box. The data comprise multiple distinct generative models based on `negative binomial distributions <https://en.wikipedia.org/wiki/Negative_binomial_distribution>`_ with different parameterizations as a function of :math:`\theta`. Because the negative binomial distribution does not belong to the exponential family, simple summary statistics independent of sample size do not exist, making the problem more interesting.
+We need a ground truth to compare with if we want to evaluate different methods for extracting useful summary statistics. We consider a model with two parameters :math:`\theta_1` and :math:`\theta_2` drawn from a standard normal distribution. The likelihood is a mixture of multivariate normal distributions, as shown in panel (a), constructed such that the first four moments only contain minimal information about the parameters. Sufficient statistics do not exist because the mixture distribution does not belong to the exponential family. Specifically,
+
+    .. math::
+
+        x &\sim \frac{1}{2}\left(\mathrm{Normal}(\mu_+,\Sigma_+) + \mathrm{Normal}(\mu_-,\Sigma_-)\right),\\
+        \text{where } \mu_\pm&=\pm\left\{2 + r, 2 + r\right\} \\
+        r &=\sqrt{\theta_1^2+\theta_2^2}\\
+        \Sigma_\pm&=\zeta\left(25 - \mu_\pm^2\right)\left(\begin{matrix}1 & \pm\theta_1 / r\\ \pm\theta_1 / r& 1\end{matrix}\right)\\
+        \zeta(x)&=\log\left(1+\exp x\right).
+
+The posterior is bimodal because of the symmetry in the likelihood, as shown in panel (b).
 
 .. plot::
 
     from summaries.benchmark import _plot_example
+    import numpy as np
+    np.random.seed(0)  # Randomness can really mess with the aspect ratio.
     _plot_example()

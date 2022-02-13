@@ -17,19 +17,15 @@ def __main__(args=None):
     if args.seed is not None:
         np.random.seed(args.seed)
 
-    samples = {}
+    result = {'args': vars(args)}
     for _ in tqdm(range(args.num_samples)):
-        theta = np.random.uniform(0, 1, 2)
-        xs = benchmark.sample(benchmark.LIKELIHOODS, theta, args.num_observations)
-        samples.setdefault('theta', []).append(theta)
-        samples.setdefault('xs', []).append(xs)
-
-    # Transpose the samples for easier access in the sampler.
-    samples = {key: np.asarray(value) for key, value in samples.items()}
-    samples['args'] = vars(args)
+        theta = np.random.normal(0, 1, 2)
+        data = benchmark.sample(benchmark.LIKELIHOODS, theta, args.num_observations)
+        result.setdefault('data', []).append(data)
+        result.setdefault('params', []).append(theta)
 
     with open(args.output, 'wb') as fp:
-        pickle.dump(samples, fp)
+        pickle.dump(result, fp)
 
 
 if __name__ == '__main__':

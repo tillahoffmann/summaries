@@ -5,32 +5,36 @@ import pickle
 from .. import algorithm, benchmark
 
 
-def evaluate_candidate_features(data):
+def preprocess_candidate_features(data: list[dict]):
     """
     Evaluate simple candidate features.
     """
-    return data.mean(axis=-1)
+    return np.asarray([np.concatenate([x.mean(axis=0) for x in xs.values()]) for xs in data])
+
+
+def preprocess_concatenate(data: list[dict]):
+    return np.asarray([np.concatenate([x for x in xs.values()]) for xs in data])
 
 
 ALGORITHMS = {
     'stan': (
-        None,
+        lambda data: np.asarray([x['gaussian_mixture'] for x in data]),
         lambda *_: benchmark.StanBenchmarkAlgorithm()
     ),
     'naive': (
-        evaluate_candidate_features,
+        preprocess_candidate_features,
         lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p)
     ),
     'nunes': (
-        evaluate_candidate_features,
+        preprocess_candidate_features,
         lambda d, p, _: algorithm.NunesAlgorithm(d, p)
     ),
     'fearnhead': (
-        None,
+        preprocess_concatenate,
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
     'fearnhead_preprocessed': (
-        evaluate_candidate_features,
+        preprocess_candidate_features,
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
 }
@@ -75,31 +79,26 @@ def __main__(args=None):
     # Load the training and test data.
     with open(args.train, 'rb') as fp:
         train = pickle.load(fp)
-        train_data = train['xs']
-        train_params = train['theta']
     with open(args.test, 'rb') as fp:
         test = pickle.load(fp)
-        test_data = test['xs']
-        test_params = test['theta']
 
     # Get a sampling algorithm and optional preprocessor.
     preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
-    if preprocessor:
-        train_data = preprocessor(train_data)
-        test_data = preprocessor(test_data)
+    train_features = preprocessor(train['data'])
+    test_features = preprocessor(test['data'])
 
-    alg: algorithm.Algorithm = algorithm_cls(train_data, train_params, args.options)
-    posterior_samples, info = alg.sample(test_data, args.num_samples)
+    alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'], args.options)
+    posterior_samples, info = alg.sample(test_features, args.num_samples)
 
     # Verify the shape of the posterior samples and save the result.
-    expected_shape = (test['theta'].shape[0], args.num_samples, alg.num_params)
+    expected_shape = (len(test['params']), args.num_samples, alg.num_params)
     assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
         f'{expected_shape} but got {posterior_samples.shape}'
 
     with open(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),
-            'theta': test_params,  # Copy over the true parameter values for easy comparison.
+            'theta': test['params'],  # Copy over the true parameter values for easy comparison.
             'posterior_samples': posterior_samples,
             'info': info,
         }, fp)

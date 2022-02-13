@@ -9,7 +9,6 @@ def test_generate_benchmark_data():
     open_.assert_called_once_with('some_file.pkl', 'wb')
     dump_.assert_called_once()
     (result, _), _ = dump_.call_args
-    for key in ['xs', 'theta']:
-        assert key in result
-        assert len(result[key]) == 23
     assert 'args' in result
+    assert len(result['data']) == 23
+    assert len(result['params']) == 23

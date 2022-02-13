@@ -1,42 +1,51 @@
+functions {
+    real softplus(real x) {
+        return log1p(exp(-fabs(x))) + fmax(x, 0);
+    }
+}
+
 data {
-    int n;  // Number of observations per likelihood.
-    int p;  // Number of different likelihoods.
-    int x[p, n];  // Count data from negative binomial model.
+    int n;
+    vector[2] x[n];
+    real<lower=0> epsilon;
 }
 
 parameters {
-    real<lower=0, upper=1> t1;
-    real<lower=0, upper=1> t2;
+    vector[2] theta;
 }
 
 transformed parameters {
-    real<lower=0> trials[p];
-    real<lower=0, upper=1> proba[p];
-    real parts[p];
+    // Container for likelihood contributions.
+    vector[n] parts;
+    real t1 = theta[1];
+    real t2 = theta[2];
+    real<lower=0> radius = sqrt(t1 ^ 2 + t2 ^ 2);
+    real loc = 2.0 + radius;
+    real<lower=0> scale = sqrt(softplus(25 - loc ^ 2));
+    real corr = t1 / radius;
+    cov_matrix[2] covp;
+    cov_matrix[2] covm;
+    vector[2] locp = rep_vector(loc, 2);
+    vector[2] locm = -locp;
 
-    // Evaluate all the parameters.
-    trials[1] = 1 + t1;
-    proba[1] = 0.1 + 0.8 * t2;
+    // Construct the positive and negative correlation matrices.
+    for (i in 1:2) {
+        for (j in 1:2) {
+            covp[i, j] = scale ^ 2 * (i == j ? 1 : corr) + (i == j ? epsilon : 0);
+            covm[i, j] = scale ^ 2 * (i == j ? 1 : -corr) + (i == j ? epsilon : 0);
+        }
+    }
 
-    trials[2] = 1 + t1;
-    proba[2] = 0.1 + 0.8 * sqrt(t1 * t2);
-
-    trials[3] = 1 + sqrt(t1 * t2);
-    proba[3] = 0.1 + 0.8 * t1;
-
-    trials[4] = 1 / (1 + t1);
-    proba[4] = 0.1 + 0.8 * t2;
-
-    // Evaluate likelihood contributions so we can compare with the python implementation.
-    for (i in 1:p) {
-        parts[i] = neg_binomial_lpmf(x[i] | trials[i], proba[i] / (1 - proba[i]));
+    // Likelihood contributions.
+    for (i in 1:n) {
+        parts[i] = log_sum_exp(
+            multi_normal_lpdf(x[i] | locp, covp),
+            multi_normal_lpdf(x[i] | locm, covm)
+        ) - log(2);
     }
 }
 
 model {
-    // Specify a prior, but these are "no-op"s.
-    t1 ~ beta(1, 1);
-    t2 ~ beta(2, 2);
-    // Evaluate the likelihood.
+    theta ~ normal(0, 1);
     target += sum(parts);
 }
