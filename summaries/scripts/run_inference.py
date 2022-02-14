@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import numpy as np
 import pickle
 from .. import algorithm, benchmark
@@ -88,6 +89,11 @@ def __main__(args=None):
     preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
     train_features = preprocessor(train['data'])
     test_features = preprocessor(test['data'])
+
+    # Disable logging for cmdstanpy.
+    if args.algorithm == 'stan':
+        logger = logging.getLogger('cmdstanpy')
+        logger.setLevel(logging.WARNING)
 
     alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'], args.cls_options)
     posterior_samples, info = alg.sample(test_features, args.num_samples, **args.sample_options)
