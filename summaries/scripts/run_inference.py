@@ -31,10 +31,6 @@ ALGORITHMS = {
         lambda d, p, _: algorithm.NunesAlgorithm(d, p)
     ),
     'fearnhead': (
-        preprocess_concatenate,
-        lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
-    ),
-    'fearnhead_preprocessed': (
         preprocess_candidate_features,
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
