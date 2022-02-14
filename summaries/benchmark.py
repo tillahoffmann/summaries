@@ -90,8 +90,8 @@ def evaluate_log_posterior(likelihoods: list[typing.Callable], samples: np.ndarr
     # Evaluate the cumulative log likelihood.
     missing = set(samples) - set(likelihoods)
     assert not missing, f'there is no likelihood for samples: {", ".join(missing)}'
-    cumulative = 0
     tt = np.meshgrid(*thetas)
+    cumulative = - (tt[0] ** 2 + tt[1] ** 2) / 2
     for key, x in samples.items():
         likelihood = likelihoods[key](*(t[..., None] for t in tt))
         log_prob = likelihood.log_prob(x)
