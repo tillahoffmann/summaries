@@ -13,8 +13,10 @@ def estimate_entropy(x: np.ndarray, k: int = 4, method: str = 'singh') -> float:
     Args:
         x: Coordinate of points.
         k: Nearest neighbor to use for entropy estimation.
-        method: Method used for entropy estimation. See 10.1080/01966324.2003.10737616 for
-            :code:`singh` and ??? for :code:`kl`.
+        method: Method used for entropy estimation. See
+            https://doi.org10.1080/01966324.2003.10737616 for :code:`singh` and
+            https://mi.mathnet.ru/eng/ppi797 for :code:`kl`. The methods only differ by their
+            dependence on sample size :math:`n` with difference on the order of :math:`1 / n`.
 
     Returns:
         entropy: Estimated entropy of the point cloud.
@@ -29,12 +31,12 @@ def estimate_entropy(x: np.ndarray, k: int = 4, method: str = 'singh') -> float:
     distance = distance[:, -1]
 
     # Estimate the entropy.
+    entropy = p * np.log(np.pi) / 2 - special.gammaln(p / 2 + 1) - special.digamma(k) + p \
+        * np.log(distance).mean()
     if method == 'singh':
-        return p * np.log(np.pi) / 2 - special.gammaln(p / 2 + 1) - special.digamma(k) + np.log(n) \
-            + p * np.log(distance).mean()
+        return entropy + np.log(n)
     elif method == 'kl':
-        return special.digamma(n) - special.digamma(k) + p * np.log(np.pi) / 2 \
-            - special.gammaln(p / 2 + 1) + p * np.log(distance).mean()
+        return entropy + special.digamma(n)
     else:
         raise NotImplementedError(method)
 
