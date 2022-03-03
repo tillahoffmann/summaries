@@ -19,6 +19,9 @@ def __main__(args=None):
     if args.seed is not None:
         th.manual_seed(args.seed)
 
+    # Disable parameter validation for speedier sampling.
+    th.distributions.Distribution.set_default_validate_args(False)
+
     result = {'args': vars(args)}
     for _ in tqdm(range(args.num_samples)):
         sample = benchmark.sample(num_observations=args.num_observations,
