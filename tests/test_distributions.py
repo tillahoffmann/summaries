@@ -10,7 +10,7 @@ def batch_shape(request: pytest.FixtureRequest):
     return request.param
 
 
-@pytest.fixture(params=['uniform', 'negative_binomial', 'multi_normal'])
+@pytest.fixture(params=['uniform', 'negative_binomial', 'normal'])
 def distribution_pair(request: pytest.FixtureRequest, batch_shape):
     if request.param == 'uniform':
         lower = np.random.uniform(0, 1, batch_shape)
@@ -22,11 +22,11 @@ def distribution_pair(request: pytest.FixtureRequest, batch_shape):
         p = np.random.uniform(0, 1, batch_shape)
         dist = distributions.NegativeBinomialDistribution(n, p)
         scipy_dist = None if batch_shape else stats.nbinom(n, p)
-    elif request.param == 'multi_normal':
+    elif request.param == 'normal':
         loc = np.random.normal(0, 1, 5)
-        cov = stats.wishart(10, np.eye(5)).rvs()
-        dist = distributions.MultiNormalDistribution(loc, cov)
-        scipy_dist = None if batch_shape else stats.multivariate_normal(loc, cov)
+        scale = np.random.gamma(10, .1, 5)
+        dist = distributions.NormalDistribution(loc, scale)
+        scipy_dist = None if batch_shape else stats.norm(loc, scale)
     else:
         raise NotImplementedError
     return dist, scipy_dist
@@ -54,10 +54,3 @@ def test_batch_sample(size, distribution_pair):
     x = dist.sample(size)
     expected_shape = dist._normalize_shape(size)
     assert np.shape(x)[:len(expected_shape)] == expected_shape
-
-
-def test_multinormal_distribution_cov():
-    cov = np.asarray([[3, -1.2], [-1.2, 4]])
-    x = distributions.MultiNormalDistribution(0, cov).sample([100000])
-    actual = np.cov(x, rowvar=False)
-    np.testing.assert_allclose(actual, cov, rtol=.1)
