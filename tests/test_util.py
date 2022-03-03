@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from scipy import stats
 import summaries
+import torch as th
 
 
 NUM_SAMPLES = 10000
@@ -12,9 +13,10 @@ NUM_SAMPLES = 10000
 @pytest.mark.parametrize('size', [(NUM_SAMPLES, 1), NUM_SAMPLES])
 def test_estimate_entropy(size):
     scale = 7
-    x = np.random.normal(0, scale, size)
+    dist = th.distributions.Normal(0, scale)
+    x = dist.sample(size if isinstance(size, tuple) else (size,))
     actual = summaries.estimate_entropy(x)
-    expected = (np.log(2 * np.pi * scale ** 2) + 1) / 2
+    expected = dist.entropy()
     assert abs(actual - expected) < .1
 
 
@@ -40,25 +42,25 @@ def test_estimate_mutual_information(method, normalize):
 
 
 def test_rmse_and_rmse_uniform():
-    x, y = np.random.uniform(0, 2, (2, NUM_SAMPLES))
+    x, y = th.distributions.Uniform(0, 2).sample((2, NUM_SAMPLES))
     actual = summaries.evaluate_rmse(x, y)
     expected = summaries.evaluate_rmse_uniform(2)
     assert abs(actual - expected) < .1
 
 
 def test_mae_and_mae_uniform():
-    x, y = np.random.uniform(0, 2, (2, NUM_SAMPLES))
+    x, y = th.distributions.Uniform(0, 2).sample((2, NUM_SAMPLES))
     actual = summaries.evaluate_mae(x, y)
     expected = summaries.evaluate_mae_uniform(2)
     assert abs(actual - expected) < .1
 
 
 def test_evaluate_level():
-    dist = stats.norm(0, 1)
-    lin = np.linspace(-3, 3, 1000)
-    density = dist.pdf(lin)
+    dist = th.distributions.Normal(0, 1)
+    lin = th.linspace(-3, 3, 1000)
+    density = dist.log_prob(lin).exp()
     level = summaries.evaluate_credible_level(density, 0.0455)
-    assert abs(level - dist.pdf(2)) < 1e-2
+    assert abs(level - dist.log_prob(th.scalar_tensor(2.0)).exp()) < 1e-2
 
 
 @pytest.mark.parametrize('config', [
@@ -115,7 +117,24 @@ def test_estimate_divergence(p):
     var1 = scale1 ** 2
     var2 = scale2 ** 2
     expected = p * ((loc1 - loc2) ** 2 / var2 + var1 / var2 - 1 - np.log(var1 / var2)) / 2
-    x = np.random.normal(loc1, scale1, (n, p))
-    y = np.random.normal(loc2, scale2, (m, p))
+    x = th.distributions.Normal(loc1, scale1).sample((n, p))
+    y = th.distributions.Normal(loc2, scale2).sample((m, p))
     actual = summaries.estimate_divergence(x, y, k=7)
     assert abs(expected - actual) < 0.05
+
+
+@pytest.mark.parametrize('func', [None, th.as_tensor])
+def test_transpose_samples(func):
+    samples = [{'x': x} for x in th.arange(10)]
+    samples = summaries.transpose_samples(samples, func=func)
+    assert 'x' in samples
+    if func:
+        assert isinstance(samples['x'], th.Tensor)
+    else:
+        assert isinstance(samples['x'], list)
+
+
+def test_normalize_shape():
+    assert summaries.normalize_shape(None) == ()
+    assert summaries.normalize_shape(5) == (5,)
+    assert summaries.normalize_shape((4, 5)) == (4, 5)
