@@ -3,10 +3,11 @@ import matplotlib.colors
 import numpy as np
 from scipy import spatial, special
 import string
+import torch as th
 import typing
 
 
-def estimate_entropy(x: np.ndarray, k: int = 4, method: str = 'singh') -> float:
+def estimate_entropy(x: th.Tensor, k: int = 4, method: str = 'singh') -> float:
     """
     Estimate the entropy of a point cloud.
 
@@ -41,7 +42,7 @@ def estimate_entropy(x: np.ndarray, k: int = 4, method: str = 'singh') -> float:
         raise NotImplementedError(method)
 
 
-def estimate_divergence(x: np.ndarray, y: np.ndarray, k: int = 4):
+def estimate_divergence(x: th.Tensor, y: th.Tensor, k: int = 4):
     """
     Estimate the Kullback Leibler divergence between two point clouds.
     """
@@ -62,7 +63,7 @@ def estimate_divergence(x: np.ndarray, y: np.ndarray, k: int = 4):
 
 
 def estimate_mutual_information(
-        x: np.ndarray, y: np.ndarray, normalize: typing.Union[bool, str] = False,
+        x: th.Tensor, y: th.Tensor, normalize: typing.Union[bool, str] = False,
         method: str = 'singh') -> float:
     """
     Estimate the mutual information between two variables.
@@ -95,22 +96,24 @@ def estimate_mutual_information(
     return mi
 
 
-def evaluate_rmse(x: np.ndarray, y: np.ndarray = None, axis=None) -> np.ndarray:
+def evaluate_rmse(x: th.Tensor, y: th.Tensor = None, axis=None) -> th.Tensor:
     """
     Evaluate the root mean squared error.
     """
     if y is not None:
         x = x - y
-    return np.sqrt(np.square(x).mean(axis=axis))
+    kwargs = {} if axis is None else {'axis': axis}
+    return x.square().mean(**kwargs).sqrt()
 
 
-def evaluate_mae(x: np.ndarray, y: np.ndarray = None, axis=None) -> np.ndarray:
+def evaluate_mae(x: th.Tensor, y: th.Tensor = None, axis=None) -> th.Tensor:
     """
     Evaluate the root mean squared error.
     """
     if y is not None:
         x = x - y
-    return np.abs(x).mean(axis=axis)
+    kwargs = {} if axis is None else {'axis': axis}
+    return x.abs().mean(**kwargs)
 
 
 def evaluate_rmse_uniform(interval):
@@ -118,7 +121,7 @@ def evaluate_rmse_uniform(interval):
     Evaluate the expected root mean squared error when both the true value and the estimate are
     drawn uniformly from a given interval.
     """
-    return interval / np.sqrt(6)
+    return interval / 6 ** 0.5
 
 
 def evaluate_mae_uniform(interval):
@@ -129,7 +132,7 @@ def evaluate_mae_uniform(interval):
     return interval / 3
 
 
-def maybe_add_batch_dim(x: np.ndarray) -> np.ndarray:
+def maybe_add_batch_dim(x: th.Tensor) -> th.Tensor:
     """
     Add a batch dimension to the array if required. If :attr:`x` has shape :code:`(n,)` the returned
     value will have shape :code:`(n, 1)`. If :attr`x` has more than one dimension, it will be
@@ -141,7 +144,6 @@ def maybe_add_batch_dim(x: np.ndarray) -> np.ndarray:
     Returns:
         x: Array with batch dimension added if required.
     """
-    x = np.asarray(x)
     if x.ndim > 1:
         return x
 
@@ -195,7 +197,7 @@ def trapznd(y, *xs, axis=-1):
     return y
 
 
-def evaluate_credible_level(density: np.ndarray, alpha: float) -> float:
+def evaluate_credible_level(density: th.Tensor, alpha: float) -> float:
     r"""
     Evaluate the level :math:`t` such that the density exceeding :math:`t` integrates to
     :math:`1 - \alpha`, i.e.
@@ -215,7 +217,7 @@ def evaluate_credible_level(density: np.ndarray, alpha: float) -> float:
     return density[i]
 
 
-def whiten_features(features: np.ndarray) -> np.ndarray:
+def whiten_features(features: th.Tensor) -> th.Tensor:
     """
     Whiten the features such that they have zero mean and identity variance.
     """
@@ -247,3 +249,24 @@ def alpha_cmap(color, name: str = None, **kwargs) -> matplotlib.colors.Colormap:
         matplotlib.colors.to_rgba(color, alpha=0.0),
         matplotlib.colors.to_rgba(color, alpha=1.0),
     ])
+
+
+def transpose_samples(samples: typing.Iterable, keys: typing.Iterable = None,
+                      func: typing.Callable = None) -> dict:
+    """
+    Transpose a list of dictionaries to a dictionary of lists.
+
+    Args:
+        samples: Iterable of dictionaries, each corresponding to a sample.
+        keys: Keys to extract (defaults to all keys of the first non-empty sample).
+        func: Optional function to apply to the transposed elements.
+    """
+    result = {}
+    for sample in samples:
+        keys = keys or sample.keys()
+        for key in keys:
+            result.setdefault(key, []).append(sample[key])
+
+    if not func:
+        return result
+    return {key: func(value) for key, value in result.items()}

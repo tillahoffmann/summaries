@@ -3,20 +3,26 @@ import json
 import logging
 import numpy as np
 import pickle
-from .. import algorithm, benchmark
+import torch as th
+from .. import algorithm, benchmark, util
 
 
-def preprocess_candidate_features(data: list[dict]):
+def preprocess_candidate_features(samples: dict):
     """
     Evaluate simple candidate features.
     """
-    return np.asarray([np.concatenate([np.atleast_1d(x.mean(axis=0))
-                       for x in xs.values()]) for xs in data])
+    features = []
+    for key, value in samples.items():
+        if key == 'theta':
+            continue
+        features.append(value.mean(axis=-1, keepdims=True))
+        features.append(value.std(axis=-1, keepdims=True))
+    return np.hstack(features)
 
 
 ALGORITHMS = {
     'stan': (
-        lambda data: np.asarray([x['gaussian_mixture'] for x in data]),
+        lambda samples: samples['x'],
         lambda *_: benchmark.StanBenchmarkAlgorithm()
     ),
     'naive': (
@@ -32,16 +38,6 @@ ALGORITHMS = {
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
 }
-
-
-class _Args(argparse.Namespace):
-    seed: int
-    options: dict
-    algorithm: str
-    train: str
-    test: str
-    num_samples: int
-    output: str
 
 
 class ListAlgorithmsAction(argparse.Action):
@@ -67,40 +63,41 @@ def __main__(args=None):
     parser.add_argument('test', help='test data path')
     parser.add_argument('num_samples', type=int, help='number of samples to generate')
     parser.add_argument('output', help='output file path')
-    args: _Args = parser.parse_args(args)
+    args = parser.parse_args(args)
 
     if args.seed is not None:
         np.random.seed(args.seed)
 
     # Load the training and test data.
-    with open(args.train, 'rb') as fp:
-        train = pickle.load(fp)
-    with open(args.test, 'rb') as fp:
-        test = pickle.load(fp)
+    samples_by_split = {}
+    for key, path in [('train', args.train), ('test', args.test)]:
+        with open(path, 'rb') as fp:
+            train = pickle.load(fp)
+        samples_by_split[key] = util.transpose_samples(train['samples'], func=th.vstack)
 
     # Get a sampling algorithm and optional preprocessor.
     preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
-    train_features = preprocessor(train['data'])
-    test_features = preprocessor(test['data'])
+    features_by_split = {key: preprocessor(value) for key, value in samples_by_split.items()}
 
     # Disable logging for cmdstanpy.
     if args.algorithm == 'stan':
         logger = logging.getLogger('cmdstanpy')
         logger.setLevel(logging.WARNING)
 
-    alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'][:, None],
-                                             args.cls_options)
-    posterior_samples, info = alg.sample(test_features, args.num_samples, **args.sample_options)
+    alg: algorithm.Algorithm = algorithm_cls(
+        features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)
+    posterior_samples, info = alg.sample(features_by_split['test'], args.num_samples,
+                                         **args.sample_options)
 
     # Verify the shape of the posterior samples and save the result.
-    expected_shape = (len(test['params']), args.num_samples, alg.num_params)
+    expected_shape = (len(samples_by_split['test']['theta']), args.num_samples, alg.num_params)
     assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
         f'{expected_shape} but got {posterior_samples.shape}'
 
     with open(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),
-            'params': test['params'],  # Copy over the true parameter values for easy comparison.
+            'theta': samples_by_split['test']['theta'],
             'posterior_samples': posterior_samples,
             'info': info,
         }, fp)
