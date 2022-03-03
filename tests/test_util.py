@@ -61,13 +61,20 @@ def test_evaluate_level():
     assert abs(level - dist.pdf(2)) < 1e-2
 
 
-@pytest.mark.parametrize('label_offset', [None, 2])
-@pytest.mark.parametrize('offset', [0.05, (0.02, 0.03)])
-def test_label_axes(label_offset, offset):
-    # Just make sure we can run the code but minimal verification.
-    _, axes = plt.subplots(2, 3)
-    elements = summaries.label_axes(axes.ravel(), label_offset=label_offset, offset=offset)
-    assert len(elements) == 6
+@pytest.mark.parametrize('config', [
+    {'shape': (), 'labels': None, 'label_offset': None, 'offset': 0.05},
+    {'shape': (), 'labels': 'single', 'label_offset': None, 'offset': (0.02, 0.03)},
+    {'shape': (1, 2), 'labels': ['list1', 'list2'], 'label_offset': None, 'offset': (0.02, 0.03)},
+    {'shape': (2, 3), 'labels': None, 'label_offset': 3, 'offset': 0.05}
+])
+def test_label_axes(config: dict):
+    num_elements = np.prod(config['shape'])
+    _, axes = plt.subplots(*config['shape'])
+    if num_elements > 1:
+        axes = axes.ravel()
+    elements = summaries.label_axes(axes, labels=config['labels'], offset=config['offset'],
+                                    label_offset=config['label_offset'])
+    assert len(elements) == num_elements
 
 
 def test_trapznd():

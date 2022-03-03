@@ -10,11 +10,8 @@ def preprocess_candidate_features(data: list[dict]):
     """
     Evaluate simple candidate features.
     """
-    return np.asarray([np.concatenate([x.mean(axis=0) for x in xs.values()]) for xs in data])
-
-
-def preprocess_concatenate(data: list[dict]):
-    return np.asarray([np.concatenate([x for x in xs.values()]) for xs in data])
+    return np.asarray([np.concatenate([np.atleast_1d(x.mean(axis=0))
+                       for x in xs.values()]) for xs in data])
 
 
 ALGORITHMS = {
@@ -91,7 +88,8 @@ def __main__(args=None):
         logger = logging.getLogger('cmdstanpy')
         logger.setLevel(logging.WARNING)
 
-    alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'], args.cls_options)
+    alg: algorithm.Algorithm = algorithm_cls(train_features, train['params'][:, None],
+                                             args.cls_options)
     posterior_samples, info = alg.sample(test_features, args.num_samples, **args.sample_options)
 
     # Verify the shape of the posterior samples and save the result.

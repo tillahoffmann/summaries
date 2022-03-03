@@ -247,10 +247,3 @@ def alpha_cmap(color, name: str = None, **kwargs) -> matplotlib.colors.Colormap:
         matplotlib.colors.to_rgba(color, alpha=0.0),
         matplotlib.colors.to_rgba(color, alpha=1.0),
     ])
-
-
-def softplus(x):
-    r"""
-    Evaluate the softplus function :math:`\log\left(1+\exp(x)\right)`
-    """
-    return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0)
