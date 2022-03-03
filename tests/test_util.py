@@ -132,3 +132,9 @@ def test_transpose_samples(func):
         assert isinstance(samples['x'], th.Tensor)
     else:
         assert isinstance(samples['x'], list)
+
+
+def test_normalize_shape():
+    assert summaries.normalize_shape(None) == ()
+    assert summaries.normalize_shape(5) == (5,)
+    assert summaries.normalize_shape((4, 5)) == (4, 5)

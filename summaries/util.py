@@ -270,3 +270,14 @@ def transpose_samples(samples: typing.Iterable, keys: typing.Iterable = None,
     if not func:
         return result
     return {key: func(value) for key, value in result.items()}
+
+
+def normalize_shape(shape):
+    """
+    Normalize a shape parameter for torch distributions.
+    """
+    if shape is None:
+        return ()
+    elif isinstance(shape, int):
+        return (shape,)
+    return shape

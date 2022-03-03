@@ -7,7 +7,7 @@ import torch as th
 from tqdm import tqdm
 import typing
 from .algorithm import Algorithm
-from .util import label_axes
+from .util import label_axes, normalize_shape
 
 
 VARIANCE_OFFSET = 1.0
@@ -44,15 +44,16 @@ def sample(*, theta: th.Tensor = None, size: tuple = None, num_observations: int
         samples: Mapping of samples of shape `(*size, p)` keyed by likelihood name, where `p` is the
             sum of the dimensionality of each likelihood.
     """
-    if size is None:
-        size = ()
+    size = normalize_shape(size)
     if theta is None:
         theta = th.distributions.Normal(0, 1).sample(size)
     num_noise_features = num_noise_features or NUM_NOISE_FEATURES
     num_observations = num_observations or NUM_OBSERVATIONS
+    x = evaluate_gaussian_mixture_distribution(theta).sample((num_observations,))
+    x = x.moveaxis(0, -1)
     return {
         'theta': theta,
-        'x': evaluate_gaussian_mixture_distribution(theta).sample((*size, num_observations)),
+        'x': x,
         'noise': th.distributions.Normal(0, 1).sample((*size, num_noise_features)),
     }
 

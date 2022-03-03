@@ -55,3 +55,11 @@ def test_benchmark_stan_model():
     for x, part in zip(xs, variables['target_parts'].T):
         log_prob = likelihood.log_prob(x)
         np.testing.assert_allclose(part, log_prob, rtol=1e-5)
+
+
+def test_benchmark_batch_sample():
+    batch_size = 47
+    batch = benchmark.sample(size=batch_size)
+    assert batch['theta'].shape == (batch_size,)
+    assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS)
+    assert batch['noise'].shape == (batch_size, benchmark.NUM_NOISE_FEATURES)
