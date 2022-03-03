@@ -24,29 +24,24 @@ class Distribution:
         raise NotImplementedError
 
 
-class MultiNormalDistribution(Distribution):
+class NormalDistribution(Distribution):
     """
-    Multivariate normal distribution.
+    Normal distribution.
     """
-    def __init__(self, loc, cov):
+    def __init__(self, loc, scale):
         self.loc = np.asarray(loc)
-        self.cov = np.asarray(cov)
-        self.cholesky = np.linalg.cholesky(cov)
-        _, self.logdet2picov = np.linalg.slogdet(2 * np.pi * self.cov)
-        self.invcov = np.linalg.inv(cov)
+        self.scale = np.asarray(scale)
 
-    def log_prob(self, x):
-        d = x - self.loc
-        return - (self.logdet2picov + np.einsum('...i,...ij,...j', d, self.invcov, d)) / 2
+    def log_prob(self, x) -> np.ndarray:
+        z = (x - self.loc) / self.scale
+        return - (np.log(2 * np.pi * self.scale ** 2) + z ** 2) / 2
 
-    def sample(self, size=None):
-        size = self._normalize_shape(size) \
-            + np.broadcast_shapes(self.loc.shape, self.cov[..., 0].shape)
-        z = np.random.normal(0, 1, size)
-        return self.loc + np.einsum('...ij,...j', self.cholesky, z)
+    def sample(self, size=None) -> np.ndarray:
+        size = self._normalize_shape(size) + np.broadcast_shapes(self.loc.shape, self.scale.shape)
+        return np.random.normal(self.loc, self.scale, size)
 
     @property
-    def mean(self):
+    def mean(self) -> np.ndarray:
         return self.loc
 
 

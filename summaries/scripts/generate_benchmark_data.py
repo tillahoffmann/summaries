@@ -19,7 +19,7 @@ def __main__(args=None):
 
     result = {'args': vars(args)}
     for _ in tqdm(range(args.num_samples)):
-        theta = np.random.normal(0, 1, 2)
+        theta = np.random.normal(0, 1)
         data = benchmark.sample(benchmark.LIKELIHOODS, theta, args.num_observations)
         result.setdefault('data', []).append(data)
         result.setdefault('params', []).append(theta)
