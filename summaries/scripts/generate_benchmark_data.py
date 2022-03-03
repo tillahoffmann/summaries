@@ -1,6 +1,6 @@
 import argparse
-import numpy as np
 import pickle
+import torch as th
 from tqdm import tqdm
 from .. import benchmark
 
@@ -8,22 +8,21 @@ from .. import benchmark
 def __main__(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, help='seed for the random number generator')
-    parser.add_argument('--num_observations', type=int, help='number of observations per '
-                        'likelihood and sample', default=5)
+    parser.add_argument('--num_observations', type=int, help='number of observations per sample')
+    parser.add_argument('--num_noise_features', type=int, help='number of noise features per '
+                        'sample')
     parser.add_argument('num_samples', type=int, help='number of samples to generate')
     parser.add_argument('output', help='output file path')
     args = parser.parse_args(args)
 
     if args.seed is not None:
-        np.random.seed(args.seed)
+        th.manual_seed(args.seed)
 
     result = {'args': vars(args)}
     for _ in tqdm(range(args.num_samples)):
-        theta = np.random.normal(0, 1)
-        data = benchmark.sample(benchmark.LIKELIHOODS, theta, args.num_observations)
-        result.setdefault('data', []).append(data)
-        result.setdefault('params', []).append(theta)
-    result['params'] = np.asarray(result['params'])
+        sample = benchmark.sample(num_observations=args.num_observations,
+                                  num_noise_features=args.num_noise_features)
+        result.setdefault('samples', []).append(sample)
 
     with open(args.output, 'wb') as fp:
         pickle.dump(result, fp)

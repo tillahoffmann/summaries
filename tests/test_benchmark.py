@@ -2,6 +2,7 @@ import numpy as np
 from scipy import stats
 import summaries
 from summaries import benchmark
+import torch as th
 
 
 def test_benchmark_coverage():
@@ -11,19 +12,18 @@ def test_benchmark_coverage():
     `1 - alpha` of the simulated cases.
     """
     alpha = .3
-    lin = np.linspace(-4, 4, 200)
+    lin = th.linspace(-4, 4, 200)
     levels = []
     for _ in range(100):
         # Sample and evaluate the posterior.
-        theta = np.random.normal(0, 1, [])
-        xs = benchmark.sample(benchmark.LIKELIHOODS, theta, 10)
-        log_posterior = benchmark.evaluate_log_joint(benchmark.LIKELIHOODS, xs, lin)
+        data = benchmark.sample()
+        log_posterior = benchmark.evaluate_log_joint(data['x'], lin)
         posterior = np.exp(log_posterior)
 
         # Evaluate the desired level.
         level = summaries.evaluate_credible_level(posterior, alpha)
         # Find the level that's close to the theta of interest.
-        delta2 = np.square(theta - lin)
+        delta2 = np.square(data['theta'] - lin)
         assert delta2.shape == posterior.shape
         level0 = posterior.ravel()[np.argmin(delta2.ravel())]
         levels.append((level, level0))
@@ -36,23 +36,21 @@ def test_benchmark_coverage():
 
 
 def test_benchmark_stan_model():
-    # Generate some data.
-    theta = np.random.uniform(0, 1)
-    num_samples = 7
-    sample = benchmark.sample(benchmark.LIKELIHOODS, theta, num_samples)
-    xs = sample['gaussian_mixture']
+    # Generate some data and fit the model.
+    data = benchmark.sample()
+    xs = data['x']
     model = benchmark.StanBenchmarkAlgorithm('summaries/benchmark.stan')
-    samples, info = model.sample(np.asarray([xs, xs, xs]), 1000, keep_fits=True)
+    samples, info = model.sample(np.asarray([xs.numpy()] * 3), 1000, keep_fits=True)
 
     # Validate the output and ensure the likelihood is the same in python and stan.
     assert samples.shape == (3, 1000, 1)
     fit = info['fits'][0]
     variables = fit.stan_variables()
-    likelihood: benchmark.GaussianMixtureDistribution = \
-        benchmark.LIKELIHOODS['gaussian_mixture'](variables['theta'])
+    likelihood = benchmark.evaluate_gaussian_mixture_distribution(th.as_tensor(variables['theta']))
     # Make sure the parameters of the likelihood are the same.
-    np.testing.assert_allclose(variables['loc'], np.abs(likelihood.component_dist.loc))
-    np.testing.assert_allclose(variables['scale'], likelihood.component_dist.scale)
+    component_dist: th.distributions.Normal = likelihood._component_distribution
+    np.testing.assert_allclose(variables['loc'], component_dist.loc[:, 0].abs())
+    np.testing.assert_allclose(variables['scale'], component_dist.scale[:, 0])
     # Compare the likelihoods for each value.
     for x, part in zip(xs, variables['target_parts'].T):
         log_prob = likelihood.log_prob(x)
