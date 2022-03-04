@@ -2,9 +2,9 @@ import argparse
 import json
 import logging
 import numpy as np
+import os
 import pickle
-import torch as th
-from .. import algorithm, benchmark, util
+from .. import algorithm, benchmark
 
 
 def preprocess_candidate_features(samples: dict):
@@ -72,8 +72,8 @@ def __main__(args=None):
     samples_by_split = {}
     for key, path in [('train', args.train), ('test', args.test)]:
         with open(path, 'rb') as fp:
-            train = pickle.load(fp)
-        samples_by_split[key] = util.transpose_samples(train['samples'], func=th.vstack)
+            data = pickle.load(fp)
+        samples_by_split[key] = data['samples']
 
     # Get a sampling algorithm and optional preprocessor.
     preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
@@ -85,7 +85,7 @@ def __main__(args=None):
         logger.setLevel(logging.WARNING)
 
     alg: algorithm.Algorithm = algorithm_cls(
-        features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)
+        features_by_split['train'], samples_by_split['train']['theta'][..., None], args.cls_options)
     posterior_samples, info = alg.sample(features_by_split['test'], args.num_samples,
                                          **args.sample_options)
 
@@ -94,6 +94,7 @@ def __main__(args=None):
     assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
         f'{expected_shape} but got {posterior_samples.shape}'
 
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),

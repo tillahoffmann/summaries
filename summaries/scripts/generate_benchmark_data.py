@@ -1,6 +1,8 @@
 import argparse
+import numpy as np
 import os
 import pickle
+import time
 import torch as th
 from tqdm import tqdm
 from .. import benchmark
@@ -23,11 +25,23 @@ def __main__(args=None):
     # Disable parameter validation for speedier sampling.
     th.distributions.Distribution.set_default_validate_args(False)
 
-    result = {'args': vars(args)}
+    samples = {}
+    times = []
     for _ in tqdm(range(args.num_samples)):
+        start = time.time()
         sample = benchmark.sample(num_observations=args.num_observations,
                                   num_noise_features=args.num_noise_features)
-        result.setdefault('samples', []).append(sample)
+        times.append(time.time() - start)
+        for key, value in sample.items():
+            if isinstance(value, th.Tensor):
+                value = value.numpy()
+            samples.setdefault(key, []).append(value)
+    samples = {key: np.asarray(value) for key, value in samples.items()}
+    result = {
+        'args': vars(args),
+        'samples': samples,
+        'times': np.asarray(times),
+    }
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, 'wb') as fp:

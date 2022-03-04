@@ -135,8 +135,6 @@ class StanBenchmarkAlgorithm(Algorithm):
         samples = []
         info = {}
         for x in tqdm(data) if show_progress else data:
-            if isinstance(x, th.Tensor):
-                x = x.numpy()
             stan_data = {
                 'num_obs': x.shape[0],
                 'x': x,
