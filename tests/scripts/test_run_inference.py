@@ -47,7 +47,7 @@ def test_run_inference(algorithm: str):
         assert info['distances'].shape == (num_test, num_samples)
         assert info['indices'].shape == (num_test, num_samples)
         assert not algorithm.startswith('fearnhead') \
-            or info['predictors'].shape == (num_test, num_params)
+            or info['compressed_data'].shape == (num_test, num_params)
     elif algorithm == 'stan':
         pass
     else:

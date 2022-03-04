@@ -88,7 +88,7 @@ class NearestNeighborAlgorithm(ABCAlgorithm):
         train_data: Reference table of simulated data with shape `(n, p)`, where `n` is the
             number of simulations and `p` is the number of features.
         train_params: Reference table of simulated parameter values with shape `(n, q)`, where `n`
-            is the number of simulatiosn and `q` is the number of parameters.
+            is the number of simulations and `q` is the number of parameters.
     """
     def __init__(self, train_data: np.ndarray, train_params: np.ndarray):
         super().__init__(train_data, train_params)
@@ -185,25 +185,35 @@ class NunesAlgorithm(SubsetSelectionAlgorithm):
         return np.asarray([estimate_entropy(x) for x in samples])
 
 
-class FearnheadAlgorithm(NearestNeighborAlgorithm, CompressorMixin):
+class StaticCompressorNearestNeighborAlgorithm(NearestNeighborAlgorithm, CompressorMixin):
     """
-    Projection algorithm minimising the L2 loss on the training data.
+    Nearest neighbor sampling algorithm with a static compressor.
     """
-    def __init__(self, train_data: np.ndarray, train_params: np.ndarray, **kwargs):
+    def __init__(self, train_data: np.ndarray, train_params: np.ndarray,
+                 compressor: typing.Callable) -> None:
+        # Compress the training data.
+        self.compressor = compressor
         self._raw_train_data = train_data
-        # Reshape the training data so it is a matrix, fit, and predict the means.
-        train_data = train_data.reshape((train_data.shape[0], -1))
-        self.predictor = linear_model.LinearRegression(**kwargs)
-        self.predictor.fit(train_data, train_params)
-        super().__init__(self.predictor.predict(train_data), train_params)
+        super().__init__(compressor(train_data), train_params)
 
     def sample(self, data: np.ndarray, num_samples: int, show_progress: bool = True, **kwargs) \
             -> typing.Tuple[np.ndarray, dict]:
         # Project into the feature space, then run as usual.
-        data = self.get_compressor(data)(data)
+        data = self.get_compressor(None)(data)
         samples, info = super().sample(data, num_samples, show_progress, **kwargs)
-        info['predictors'] = data
+        info['compressed_data'] = data
         return samples, info
 
-    def get_compressor(self, _: np.ndarray) -> typing.Callable:
-        return lambda data: self.predictor.predict(data.reshape(data.shape[0], -1))
+    def get_compressor(self, data: np.ndarray) -> typing.Callable:
+        assert data is None, 'data should be none for static compressors'
+        return self.compressor
+
+
+class FearnheadAlgorithm(StaticCompressorNearestNeighborAlgorithm):
+    """
+    Projection algorithm minimising the L2 loss on the training data.
+    """
+    def __init__(self, train_data: np.ndarray, train_params: np.ndarray, **kwargs) -> None:
+        self.predictor = linear_model.LinearRegression(**kwargs)
+        self.predictor.fit(train_data, train_params)
+        super().__init__(train_data, train_params, self.predictor.predict)
