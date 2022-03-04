@@ -3,7 +3,8 @@ from unittest import mock
 
 
 def test_generate_benchmark_data():
-    with mock.patch('builtins.open') as open_, mock.patch('pickle.dump') as dump_:
+    with mock.patch('builtins.open') as open_, mock.patch('pickle.dump') as dump_, \
+            mock.patch('os.makedirs'):
         generate_benchmark_data.__main__(['--seed=0', '--num_observations=17',
                                           '--num_noise_features=5', '23', 'some_file.pkl'])
 

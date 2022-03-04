@@ -1,4 +1,5 @@
 import argparse
+import os
 import pickle
 import torch as th
 from tqdm import tqdm
@@ -28,6 +29,7 @@ def __main__(args=None):
                                   num_noise_features=args.num_noise_features)
         result.setdefault('samples', []).append(sample)
 
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, 'wb') as fp:
         pickle.dump(result, fp)
 
