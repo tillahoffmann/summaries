@@ -63,6 +63,9 @@ benchmark_data : ${BENCHMARK_TARGETS}
 ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_data.py summaries/benchmark.py
 	python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
 
+workspace/generate_benchmark_data.prof :
+	python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data --seed=0 100000 workspace/temp.pkl
+
 # Run inference on benchmark data ------------------------------------------------------------------
 
 ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
