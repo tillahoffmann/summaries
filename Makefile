@@ -75,7 +75,7 @@ MODE ?= test
 # Dataset to use as the reference table.
 REFERENCE ?= train
 INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
-NUM_SAMPLES ?= 2000
+NUM_SAMPLES ?= 5000
 
 inference : ${INFERENCE_TARGETS}
 ${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
