@@ -7,16 +7,12 @@ import pickle
 from .. import algorithm, benchmark
 
 
-def preprocess_candidate_features(samples: dict):
+def preprocess_candidate_features(samples: dict[str, np.ndarray]):
     """
     Evaluate simple candidate features.
     """
-    features = []
-    for key, value in samples.items():
-        if key == 'theta':
-            continue
-        features.append(value.mean(axis=-1, keepdims=True))
-        features.append(value.std(axis=-1, keepdims=True))
+    features = [(samples['x'] ** k).mean(axis=-1, keepdims=True) for k in [2, 4, 6, 8]]
+    features.append(samples['noise'].mean(axis=-1, keepdims=True))
     return np.hstack(features)
 
 

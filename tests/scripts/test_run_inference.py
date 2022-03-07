@@ -11,7 +11,7 @@ def test_run_inference(algorithm: str):
     num_test = 7
     num_samples = 13
     num_params = 1
-    num_features = 2 + 2  # Mean and standard deviation of the data and noise.
+    num_features = 2 + 3  # Three moments for the data and two noise features.
 
     assert num_train >= num_samples, 'cannot take more samples than there are training points'
 
