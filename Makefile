@@ -80,5 +80,5 @@ NUM_SAMPLES ?= 2000
 inference : ${INFERENCE_TARGETS}
 ${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
 		summaries/algorithm.py summaries/scripts/run_inference.py
-	python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
-		workspace/${REFERENCE}.pkl workspace/${MODE}.pkl ${NUM_SAMPLES} $@
+	NUMEXPR_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python -m summaries.scripts.run_inference \
+		${ALGORITHM_OPTIONS_$*} $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl ${NUM_SAMPLES} $@
