@@ -4,19 +4,15 @@ import logging
 import numpy as np
 import os
 import pickle
-from .. import algorithm, benchmark
+from .. import algorithm, benchmark, nn
 
 
-def preprocess_candidate_features(samples: dict):
+def preprocess_candidate_features(samples: dict[str, np.ndarray]):
     """
     Evaluate simple candidate features.
     """
-    features = []
-    for key, value in samples.items():
-        if key == 'theta':
-            continue
-        features.append(value.mean(axis=-1, keepdims=True))
-        features.append(value.std(axis=-1, keepdims=True))
+    features = [(samples['x'] ** k).mean(axis=-1, keepdims=True) for k in [2, 4, 6, 8]]
+    features.append(samples['noise'].mean(axis=-1, keepdims=True))
     return np.hstack(features)
 
 
@@ -37,6 +33,14 @@ ALGORITHMS = {
         preprocess_candidate_features,
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
+    'mdn_compressor': (
+        lambda samples: samples['x'][..., None],
+        lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path'])
+    ),
+    'mdn': (
+        lambda samples: samples['x'][..., None],
+        lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path'])
+    )
 }
 
 
@@ -90,9 +94,12 @@ def __main__(args=None):
                                          **args.sample_options)
 
     # Verify the shape of the posterior samples and save the result.
-    expected_shape = (len(samples_by_split['test']['theta']), args.num_samples, alg.num_params)
-    assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
-        f'{expected_shape} but got {posterior_samples.shape}'
+    try:
+        expected_shape = (len(samples_by_split['test']['theta']), args.num_samples, alg.num_params)
+        assert posterior_samples.shape == expected_shape, 'expected posterior sample shape ' \
+            f'{expected_shape} but got {posterior_samples.shape}'
+    except NotImplementedError:
+        pass
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     with open(args.output, 'wb') as fp:

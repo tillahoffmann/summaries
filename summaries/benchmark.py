@@ -7,6 +7,7 @@ import torch as th
 from tqdm import tqdm
 import typing
 from .algorithm import Algorithm
+from .nn import DenseCompressor, DenseStack
 from .util import label_axes, normalize_shape
 
 
@@ -153,3 +154,40 @@ class StanBenchmarkAlgorithm(Algorithm):
     @property
     def num_params(self):
         return 1
+
+
+class MDNBenchmarkAlgorithm(th.nn.Module):
+    """
+    Simple Gaussian mixture density network for the benchmark problem.
+
+    Args:
+        num_components: Number of components of the Gaussian mixture model.
+        num_features: Number of hidden features serving as summary statistics.
+    """
+    def __init__(self, num_components: int, num_features: int) -> None:
+        super().__init__()
+        self.num_features = num_features
+        self.num_components = num_components
+        self.compressor = DenseCompressor([1, 16, 16, num_features], th.nn.Tanh())
+        self.logit_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
+        self.loc_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
+        self.log_scale_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
+
+    def forward(self, x: th.Tensor) -> th.distributions.MixtureSameFamily:
+        # Compress the data.
+        *batch_size, _num_obs, _num_dims = x.shape
+        x = self.compressor(x)
+        assert x.shape == (*batch_size, self.num_features)
+
+        # Estimate properties of the Gaussian mixture.
+        logits = self.logit_layers(x)
+        locs = self.loc_layers(x)
+        scales = self.log_scale_layers(x).exp()
+        for x in logits, locs, scales:
+            assert x.shape == (*batch_size, self.num_components)
+
+        dist = th.distributions.MixtureSameFamily(
+            th.distributions.Categorical(logits=logits),
+            th.distributions.Normal(locs, scales),
+        )
+        return dist

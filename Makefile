@@ -1,5 +1,7 @@
 .PHONY : docs lint sync tests figures
 
+ENV = NUMEXPR_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+
 build : lint tests docs
 
 lint :
@@ -61,24 +63,32 @@ BENCHMARK_SEED_debug = 3
 benchmark_data : ${BENCHMARK_TARGETS}
 
 ${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_data.py summaries/benchmark.py
-	python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
+	${ENV} python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
 
 workspace/generate_benchmark_data.prof :
-	python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data --seed=0 100000 workspace/temp.pkl
+	${ENV} python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data --seed=0 100000 workspace/temp.pkl
 
 # Run inference on benchmark data ------------------------------------------------------------------
 
 ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
 ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
+ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"workspace/${REFERENCE}_mdn_compressor.pt\"}"
+ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"workspace/${REFERENCE}_mdn.pt\"}"
 # Dataset to evaluate on.
 MODE ?= test
 # Dataset to use as the reference table.
 REFERENCE ?= train
 INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
-NUM_SAMPLES ?= 2000
+NUM_SAMPLES ?= 5000
 
 inference : ${INFERENCE_TARGETS}
 ${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
 		summaries/algorithm.py summaries/scripts/run_inference.py
-	python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
-		workspace/${REFERENCE}.pkl workspace/${MODE}.pkl ${NUM_SAMPLES} $@
+	${ENV} python -m summaries.scripts.run_inference \
+		${ALGORITHM_OPTIONS_$*} $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl ${NUM_SAMPLES} $@
+
+mdn : workspace/${REFERENCE}_mdn.pt workspace/${REFERENCE}_mdn_compressor.pt
+
+workspace/${REFERENCE}_mdn.pt workspace/${REFERENCE}_mdn_compressor.pt :
+	${ENV} python -m summaries.scripts.train_benchmark_mdn workspace/${REFERENCE}.pkl \
+		workspace/validation.pkl workspace/${REFERENCE}_mdn.pt workspace/${REFERENCE}_mdn_compressor.pt
