@@ -1,11 +1,11 @@
 import argparse
 import numpy as np
-import os
 import pickle
 import time
 import torch as th
 from tqdm import tqdm
 from .. import benchmark
+from .. import util
 
 
 def __main__(args=None):
@@ -43,8 +43,7 @@ def __main__(args=None):
         'times': np.asarray(times),
     }
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    with open(args.output, 'wb') as fp:
+    with util.sopen(args.output, 'wb') as fp:
         pickle.dump(result, fp)
 
 
