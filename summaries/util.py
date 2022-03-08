@@ -1,6 +1,8 @@
+import functools as ft
 import matplotlib.axes
 import matplotlib.colors
 import numpy as np
+import os
 from scipy import spatial, special
 import string
 import torch as th
@@ -281,3 +283,13 @@ def normalize_shape(shape):
     elif isinstance(shape, int):
         return (shape,)
     return shape
+
+
+@ft.wraps(open)
+def sopen(file, mode, *args, **kwargs):
+    """
+    Open a file handle safely, creating the parent directory if necessary.
+    """
+    if any(m in mode for m in 'awx'):
+        os.makedirs(os.path.dirname(file), exist_ok=True)
+    return open(file, mode, *args, **kwargs)

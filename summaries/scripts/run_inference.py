@@ -2,9 +2,8 @@ import argparse
 import json
 import logging
 import numpy as np
-import os
 import pickle
-from .. import algorithm, benchmark, nn
+from .. import algorithm, benchmark, nn, util
 
 
 def preprocess_candidate_features(samples: dict[str, np.ndarray]):
@@ -101,8 +100,7 @@ def __main__(args=None):
     except NotImplementedError:
         pass
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    with open(args.output, 'wb') as fp:
+    with util.sopen(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),
             'theta': samples_by_split['test']['theta'],

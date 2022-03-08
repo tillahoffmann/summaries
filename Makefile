@@ -1,3 +1,4 @@
+.SECONDEXPANSION :
 .PHONY : docs lint sync tests figures
 
 ENV = NUMEXPR_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -23,7 +24,7 @@ requirements.txt : requirements.in setup.py test_requirements.txt
 test_requirements.txt : test_requirements.in setup.py
 	pip-compile -v -o $@ $<
 
-# Generate figures ---------------------------------------------------------------------------------
+# Generate figures =================================================================================
 
 FIGURES = bimodal broad_posterior piecewise_likelihood benchmark
 FIGURE_TARGETS = $(addprefix figures/,${FIGURES:=.pdf})
@@ -45,50 +46,70 @@ ${FIGURE_TARGETS} : figures/%.pdf : scrartcl.mplstyle
 	python -m summaries.scripts.plot --seed=${FIGURE_SEED_$*} --style=$< \
 		${FIGURE_FUNC_$*} $@
 
-# Generate benchmark data --------------------------------------------------------------------------
+# Generate benchmark data and run inference ========================================================
 
-BENCHMARK_NAMES = train validation test debug
-BENCHMARK_TARGETS = $(addprefix workspace/,${BENCHMARK_NAMES:=.pkl})
-
-BENCHMARK_SIZE_train = 1000000
-BENCHMARK_SIZE_validation = 10000
-BENCHMARK_SIZE_test = 1000
-BENCHMARK_SIZE_debug = 100
-
-BENCHMARK_SEED_train = 0
-BENCHMARK_SEED_validation = 1
-BENCHMARK_SEED_test = 2
-BENCHMARK_SEED_debug = 3
-
-benchmark_data : ${BENCHMARK_TARGETS}
-
-${BENCHMARK_TARGETS} : workspace/%.pkl : summaries/scripts/generate_benchmark_data.py summaries/benchmark.py
-	${ENV} python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_SEED_$*} ${BENCHMARK_SIZE_$*} $@
-
-workspace/generate_benchmark_data.prof :
-	${ENV} python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data --seed=0 100000 workspace/temp.pkl
-
-# Run inference on benchmark data ------------------------------------------------------------------
-
-ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
-ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
-ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"workspace/${REFERENCE}_mdn_compressor.pt\"}"
-ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"workspace/${REFERENCE}_mdn.pt\"}"
+# Path for everything benchmark-related.
+BENCHMARK_ROOT = workspace/benchmark
 # Dataset to evaluate on.
 MODE ?= test
 # Dataset to use as the reference table.
 REFERENCE ?= train
-INFERENCE_TARGETS = $(addprefix workspace/${MODE}_,${ALGORITHMS:=.pkl})
+
+# Generate benchmark data --------------------------------------------------------------------------
+
+BENCHMARK_DATA_NAMES = train validation test debug
+BENCHMARK_DATA_TARGETS = $(addprefix ${BENCHMARK_ROOT}/,${BENCHMARK_DATA_NAMES:=.pkl})
+
+BENCHMARK_DATA_SIZE_train = 1000000
+BENCHMARK_DATA_SIZE_validation = 10000
+BENCHMARK_DATA_SIZE_test = 1000
+BENCHMARK_DATA_SIZE_debug = 100
+
+BENCHMARK_DATA_SEED_train = 0
+BENCHMARK_DATA_SEED_validation = 1
+BENCHMARK_DATA_SEED_test = 2
+BENCHMARK_DATA_SEED_debug = 3
+
+${BENCHMARK_ROOT}/data : ${BENCHMARK_DATA_TARGETS}
+
+${BENCHMARK_DATA_TARGETS} : ${BENCHMARK_ROOT}/%.pkl :
+	${ENV} python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_DATA_SEED_$*} \
+		${BENCHMARK_DATA_SIZE_$*} $@
+
+${BENCHMARK_ROOT}/generate_benchmark_data.prof :
+	${ENV} python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data --seed=0 100000 \
+		${BENCHMARK_ROOT}/temp.pkl
+
+# Train a mixture density network ------------------------------------------------------------------
+
+BENCHMARK_MDN = ${BENCHMARK_ROOT}/${REFERENCE}_mdn.pt
+BENCHMARK_MDN_COMPRESSOR = ${BENCHMARK_ROOT}/${REFERENCE}_mdn_compressor.pt
+
+${BENCHMARK_ROOT}/mdn : ${BENCHMARK_MDN} ${BENCHMARK_MDN_COMPRESSOR}
+
+${BENCHMARK_MDN} ${BENCHMARK_MDN_COMPRESSOR} : ${BENCHMARK_ROOT}/${REFERENCE}.pkl \
+		${BENCHMARK_ROOT}/validation.pkl
+	${ENV} python -m summaries.scripts.train_benchmark_mdn $^ ${BENCHMARK_MDN} \
+		${BENCHMARK_MDN_COMPRESSOR}
+
+# Draw posterior samples using different algorithms ------------------------------------------------
+
+# Number of posterior samples.
 NUM_SAMPLES ?= 5000
+# Algorithms, additional algorithm options, and additional algorithm dependencies.
+ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
+ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
+ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"${BENCHMARK_MDN}\"}"
+ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"${BENCHMARK_MDN_COMPRESSOR}\"}"
+ALGORITHM_DEPS_mdn = ${BENCHMARK_MDN}
+ALGORITHM_DEPS_mdn_compressor = ${BENCHMARK_MDN_COMPRESSOR}
 
-inference : ${INFERENCE_TARGETS}
-${INFERENCE_TARGETS} : workspace/${MODE}_%.pkl : workspace/${REFERENCE}.pkl workspace/${MODE}.pkl \
-		summaries/algorithm.py summaries/scripts/run_inference.py
-	${ENV} python -m summaries.scripts.run_inference \
-		${ALGORITHM_OPTIONS_$*} $* workspace/${REFERENCE}.pkl workspace/${MODE}.pkl ${NUM_SAMPLES} $@
+BENCHMARK_INFERENCE_TARGETS = $(addprefix ${BENCHMARK_ROOT}/${MODE}_,${ALGORITHMS:=.pkl})
 
-mdn : workspace/${REFERENCE}_mdn.pt workspace/${REFERENCE}_mdn_compressor.pt
+${BENCHMARK_ROOT}/inference : ${BENCHMARK_INFERENCE_TARGETS}
 
-workspace/${REFERENCE}_mdn.pt workspace/${REFERENCE}_mdn_compressor.pt :
-	${ENV} python -m summaries.scripts.train_benchmark_mdn workspace/${REFERENCE}.pkl \
-		workspace/validation.pkl workspace/${REFERENCE}_mdn.pt workspace/${REFERENCE}_mdn_compressor.pt
+${BENCHMARK_INFERENCE_TARGETS} : ${BENCHMARK_ROOT}/${MODE}_%.pkl : \
+		${BENCHMARK_ROOT}/${REFERENCE}.pkl ${BENCHMARK_ROOT}/${MODE}.pkl $${ALGORITHM_DEPS_$$*}
+# Args: custom options for the algo, name of algo, train and test data, # samples, output path.
+	${ENV} python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
+		${BENCHMARK_ROOT}/${REFERENCE}.pkl ${BENCHMARK_ROOT}/${MODE}.pkl ${NUM_SAMPLES} $@
