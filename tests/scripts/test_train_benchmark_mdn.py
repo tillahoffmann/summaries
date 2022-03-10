@@ -17,8 +17,10 @@ def test_train_benchmark_mdn():
         # Train the model.
         mdn_path = os.path.join(tmp, 'mdn.pt')
         compressor_path = os.path.join(tmp, 'compressor.pt')
+        os.environ['SEED'] = '0'
         args = [data_path, data_path, mdn_path, compressor_path,
                 f'--num_components={num_components}', f'--num_features={num_features}']
+        del os.environ['SEED']
         train_benchmark_mdn.__main__(args)
 
         # Load the models and validate the output.
