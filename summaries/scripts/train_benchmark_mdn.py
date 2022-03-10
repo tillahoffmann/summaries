@@ -41,7 +41,7 @@ def __main__(args: list[str] = None):
                     for key, dataset in datasets.items()}
 
     # Construct the MDN and learning rate schedule.
-    mdn = benchmark.MDNBenchmarkAlgorithm(data.shape[-1], args.num_components, args.num_features)
+    mdn = benchmark.MDNBenchmarkModule(data.shape[-1], args.num_components, args.num_features)
     optimizer = th.optim.Adam(mdn.parameters(), args.lr0)
     scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=args.patience // 2)
 

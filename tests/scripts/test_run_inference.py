@@ -32,7 +32,7 @@ def test_run_inference(algorithm: str):
             th.save(compressor, compressor_path)
             cls_options = {'path': compressor_path}
         elif algorithm == 'mdn':
-            mdn = benchmark.MDNBenchmarkAlgorithm(1 + benchmark.NUM_NOISE_FEATURES, 3, 1)
+            mdn = benchmark.MDNBenchmarkModule(1 + benchmark.NUM_NOISE_FEATURES, 3, 1)
             mdn_path = os.path.join(directory, 'mdn.pt')
             th.save(mdn, mdn_path)
             cls_options = {'path': mdn_path}

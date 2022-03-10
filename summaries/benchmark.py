@@ -165,7 +165,7 @@ class StanBenchmarkAlgorithm(Algorithm):
         return 1
 
 
-class MDNBenchmarkAlgorithm(th.nn.Module):
+class MDNBenchmarkModule(th.nn.Module):
     """
     Simple Gaussian mixture density network for the benchmark problem.
 
