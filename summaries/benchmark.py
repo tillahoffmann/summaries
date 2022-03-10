@@ -52,11 +52,13 @@ def sample(*, theta: th.Tensor = None, size: tuple = None, num_observations: int
     num_observations = num_observations or NUM_OBSERVATIONS
     x = evaluate_gaussian_mixture_distribution(theta).sample((num_observations,))
     x = x.moveaxis(0, -1)
+
+    noise_shape = (*size, num_observations, num_noise_features)
     return {
         # Add a trailing dimension of size one for consistency with multidimensional setups.
         'theta': theta[..., None],
         'x': x[..., None],
-        'noise': th.distributions.Normal(0, 1).sample((*size, num_noise_features)),
+        'noise': th.distributions.Normal(0, 1).sample(noise_shape),
     }
 
 

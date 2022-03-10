@@ -14,7 +14,7 @@ def test_run_inference(algorithm: str):
     num_test = 7
     num_samples = 13
     num_params = 1
-    num_features = 2 + 3  # Three moments for the data and two noise features.
+    num_features = 2 + 4  # Four moments for the data and two noise features.
     cls_options = None
 
     assert num_train >= num_samples, 'cannot take more samples than there are training points'

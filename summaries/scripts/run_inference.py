@@ -10,9 +10,10 @@ def preprocess_candidate_features(samples: dict[str, np.ndarray]):
     """
     Evaluate simple candidate features.
     """
-    features = [(samples['x'][..., 0] ** k).mean(axis=-1, keepdims=True) for k in [2, 4, 6, 8]]
-    features.append(samples['noise'].mean(axis=-1, keepdims=True))
-    return np.hstack(features)
+    return np.hstack([
+        np.mean(samples['x'] ** [2, 4, 6, 8], axis=-2),
+        np.mean(samples['noise'], axis=-2)
+    ])
 
 
 ALGORITHMS = {

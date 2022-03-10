@@ -62,4 +62,5 @@ def test_benchmark_batch_sample():
     batch = benchmark.sample(size=batch_size)
     assert batch['theta'].shape == (batch_size, 1)
     assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS, 1)
-    assert batch['noise'].shape == (batch_size, benchmark.NUM_NOISE_FEATURES)
+    assert batch['noise'].shape == (batch_size, benchmark.NUM_OBSERVATIONS,
+                                    benchmark.NUM_NOISE_FEATURES)
