@@ -41,3 +41,7 @@ def test_rejection_algorithm_batch_query(algorithm: summaries.NearestNeighborAlg
     assert y.shape == (batch_size, num_samples, algorithm.num_params)
     assert info['indices'].shape == (batch_size, num_samples)
     assert info['distances'].shape == (batch_size, num_samples)
+
+
+def test_logger(algorithm: summaries.Algorithm):
+    algorithm.logger.debug('logging test for %s', algorithm)

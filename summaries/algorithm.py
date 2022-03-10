@@ -1,4 +1,5 @@
 import itertools as it
+import logging
 import numpy as np
 from scipy import spatial
 from sklearn import linear_model
@@ -35,6 +36,13 @@ class Algorithm:
         Number of parameters of the model.
         """
         raise NotImplementedError
+
+    @property
+    def logger(self):
+        """
+        Algorithm-specific logger.
+        """
+        return logging.getLogger(self.__class__.__name__)
 
 
 class CompressorMixin:

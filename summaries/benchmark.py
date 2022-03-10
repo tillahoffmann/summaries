@@ -151,6 +151,12 @@ class StanBenchmarkAlgorithm(Algorithm):
             if keep_fits:
                 info.setdefault('fits', []).append(fit)
 
+            # Report on divergences if any.
+            method_variables = fit.method_variables()
+            divergent = method_variables['divergent__']
+            if np.any(divergent):  # pragma: no cover
+                self.logger.warning('%.3f%% divergent transitions', divergent.mean() * 100)
+
         # We append a trailing dimension of one element for consistency with the other algorithms.
         return np.asarray(samples)[..., None], info
 
