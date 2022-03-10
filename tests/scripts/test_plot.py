@@ -8,13 +8,8 @@ from unittest import mock
 
 def test_plot_script():
     with mock.patch('matplotlib.figure.Figure.savefig') as savefig_:
-        __main__([
-            'summaries.examples.bimodal:_plot_example',
-            '--seed=0',
-            '--style=scrartcl.mplstyle',
-            'output.pdf',
-        ])
-
+        __main__(['summaries.examples.bimodal:_plot_example', '--style=scrartcl.mplstyle',
+                  'output.pdf'])
     savefig_.assert_called_once_with('output.pdf')
 
 

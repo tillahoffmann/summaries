@@ -52,11 +52,13 @@ def sample(*, theta: th.Tensor = None, size: tuple = None, num_observations: int
     num_observations = num_observations or NUM_OBSERVATIONS
     x = evaluate_gaussian_mixture_distribution(theta).sample((num_observations,))
     x = x.moveaxis(0, -1)
+
+    noise_shape = (*size, num_observations, num_noise_features)
     return {
         # Add a trailing dimension of size one for consistency with multidimensional setups.
         'theta': theta[..., None],
         'x': x[..., None],
-        'noise': th.distributions.Normal(0, 1).sample((*size, num_noise_features)),
+        'noise': th.distributions.Normal(0, 1).sample(noise_shape),
     }
 
 
@@ -162,14 +164,16 @@ class MDNBenchmarkAlgorithm(th.nn.Module):
     Simple Gaussian mixture density network for the benchmark problem.
 
     Args:
+        num_dims: Number of input dimensions.
         num_components: Number of components of the Gaussian mixture model.
         num_features: Number of hidden features serving as summary statistics.
     """
-    def __init__(self, num_components: int, num_features: int) -> None:
+    def __init__(self, num_dims: int, num_components: int, num_features: int) -> None:
         super().__init__()
+        self.num_dims = num_dims
         self.num_features = num_features
         self.num_components = num_components
-        self.compressor = DenseCompressor([1, 16, 16, num_features], th.nn.Tanh())
+        self.compressor = DenseCompressor([num_dims, 16, 16, num_features], th.nn.Tanh())
         self.logit_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
         self.loc_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
         self.log_scale_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())

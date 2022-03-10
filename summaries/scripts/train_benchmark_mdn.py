@@ -1,12 +1,17 @@
 import argparse
 import logging
+import numpy as np
 import os
 import pickle
 from summaries import benchmark
 import torch as th
+from .util import setup
 
 
 def __main__(args: list[str] = None):
+    logger = logging.getLogger('train_benchmark_mdn')
+    setup()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_features', help='number of summary statistics', type=int, default=1)
     parser.add_argument('--num_components', help='number of mixture components', type=int,
@@ -22,28 +27,21 @@ def __main__(args: list[str] = None):
     parser.add_argument('compressor_output', help='output for the compressor')
     args = parser.parse_args(args)
 
-    logger = logging.getLogger('train_benchmark_mdn')
-    logging.basicConfig(level='INFO')
-
-    th.manual_seed(0)
-
     # Load the data and create data loaders for training.
     paths = {'train': args.train, 'validation': args.validation}
     datasets = {}
     for key, path in paths.items():
         with open(path, 'rb') as fp:
             samples_ = pickle.load(fp)['samples']
-        dataset = th.utils.data.TensorDataset(
-            # We append a trailing dimension because we only have one-dimensional data.
-            th.as_tensor(samples_['x']),
-            th.as_tensor(samples_['theta'])
-        )
+        data = th.as_tensor(np.concatenate([samples_['x'], samples_['noise']], axis=-1))
+        params = th.as_tensor(samples_['theta'][..., 0])
+        dataset = th.utils.data.TensorDataset(data, params)
         datasets[key] = dataset
     data_loaders = {key: th.utils.data.DataLoader(dataset, args.batch_size, shuffle=True)
                     for key, dataset in datasets.items()}
 
     # Construct the MDN and learning rate schedule.
-    mdn = benchmark.MDNBenchmarkAlgorithm(args.num_components, args.num_features)
+    mdn = benchmark.MDNBenchmarkAlgorithm(data.shape[-1], args.num_components, args.num_features)
     optimizer = th.optim.Adam(mdn.parameters(), args.lr0)
     scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=args.patience // 2)
 

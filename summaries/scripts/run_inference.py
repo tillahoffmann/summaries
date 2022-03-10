@@ -1,18 +1,28 @@
 import argparse
+import cmdstanpy
 import json
 import logging
 import numpy as np
 import pickle
 from .. import algorithm, benchmark, nn, util
+from .util import setup
 
 
 def preprocess_candidate_features(samples: dict[str, np.ndarray]):
     """
     Evaluate simple candidate features.
     """
-    features = [(samples['x'][..., 0] ** k).mean(axis=-1, keepdims=True) for k in [2, 4, 6, 8]]
-    features.append(samples['noise'].mean(axis=-1, keepdims=True))
-    return np.hstack(features)
+    return np.hstack([
+        np.mean(samples['x'] ** [2, 4, 6, 8], axis=-2),
+        np.mean(samples['noise'], axis=-2)
+    ])
+
+
+def concatenate_features(samples: dict[str, np.ndarray]):
+    """
+    Concatenate features into a single feature vector.
+    """
+    return np.concatenate([samples['x'], samples['noise']], axis=-1)
 
 
 ALGORITHMS = {
@@ -33,11 +43,11 @@ ALGORITHMS = {
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
     'mdn_compressor': (
-        lambda samples: samples['x'],
+        concatenate_features,
         lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path'])
     ),
     'mdn': (
-        lambda samples: samples['x'],
+        concatenate_features,
         lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path'])
     )
 }
@@ -53,10 +63,12 @@ class ListAlgorithmsAction(argparse.Action):
 
 
 def __main__(args=None):
+    setup()
+    cmdstanpy.utils.get_logger().setLevel(logging.WARNING)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
                         nargs=0)
-    parser.add_argument('--seed', type=int, help='seed for the random number generator')
     parser.add_argument('--cls_options', help='JSON options for the constructor', type=json.loads,
                         default={})
     parser.add_argument('--sample_options', help='JSON options for sampling', type=json.loads,
@@ -68,9 +80,6 @@ def __main__(args=None):
     parser.add_argument('output', help='output file path')
     args = parser.parse_args(args)
 
-    if args.seed is not None:
-        np.random.seed(args.seed)
-
     # Load the training and test data.
     samples_by_split = {}
     for key, path in [('train', args.train), ('test', args.test)]:
@@ -81,11 +90,6 @@ def __main__(args=None):
     # Get a sampling algorithm and optional preprocessor.
     preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
     features_by_split = {key: preprocessor(value) for key, value in samples_by_split.items()}
-
-    # Disable logging for cmdstanpy.
-    if args.algorithm == 'stan':
-        logger = logging.getLogger('cmdstanpy')
-        logger.setLevel(logging.WARNING)
 
     alg: algorithm.Algorithm = algorithm_cls(
         features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)
