@@ -1,6 +1,7 @@
 import functools as ft
 import matplotlib.axes
 import matplotlib.colors
+import numbers
 import numpy as np
 import os
 from scipy import spatial, special
@@ -280,7 +281,7 @@ def normalize_shape(shape):
     """
     if shape is None:
         return ()
-    elif isinstance(shape, int):
+    elif isinstance(shape, numbers.Integral):
         return (shape,)
     return shape
 
