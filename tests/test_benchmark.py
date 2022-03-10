@@ -60,6 +60,6 @@ def test_benchmark_stan_model():
 def test_benchmark_batch_sample():
     batch_size = 47
     batch = benchmark.sample(size=batch_size)
-    assert batch['theta'].shape == (batch_size,)
-    assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS)
+    assert batch['theta'].shape == (batch_size, 1)
+    assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS, 1)
     assert batch['noise'].shape == (batch_size, benchmark.NUM_NOISE_FEATURES)

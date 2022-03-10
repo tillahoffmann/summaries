@@ -35,7 +35,7 @@ def __main__(args: list[str] = None):
             samples_ = pickle.load(fp)['samples']
         dataset = th.utils.data.TensorDataset(
             # We append a trailing dimension because we only have one-dimensional data.
-            th.as_tensor(samples_['x'][..., None]),
+            th.as_tensor(samples_['x']),
             th.as_tensor(samples_['theta'])
         )
         datasets[key] = dataset
