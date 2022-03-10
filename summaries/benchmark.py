@@ -53,8 +53,9 @@ def sample(*, theta: th.Tensor = None, size: tuple = None, num_observations: int
     x = evaluate_gaussian_mixture_distribution(theta).sample((num_observations,))
     x = x.moveaxis(0, -1)
     return {
-        'theta': theta,
-        'x': x,
+        # Add a trailing dimension of size one for consistency with multidimensional setups.
+        'theta': theta[..., None],
+        'x': x[..., None],
         'noise': th.distributions.Normal(0, 1).sample((*size, num_noise_features)),
     }
 
@@ -74,7 +75,7 @@ def evaluate_log_joint(x: th.Tensor, theta: th.Tensor, normalize: bool = True) -
     log_prior = th.distributions.Normal(0.0, 1.0).log_prob(theta)
     # Evaluate the likelihood. We expand the dimension so we can sum over the samples.
     dist = evaluate_gaussian_mixture_distribution(theta[..., None])
-    log_likelihood = dist.log_prob(x).sum(axis=-1)
+    log_likelihood = dist.log_prob(x[..., 0]).sum(axis=-1)
     log_joint = log_prior + log_likelihood
 
     # Subtract maximum for numerical stability and normalize if desired.
@@ -138,7 +139,7 @@ class StanBenchmarkAlgorithm(Algorithm):
         for x in tqdm(data) if show_progress else data:
             stan_data = {
                 'num_obs': x.shape[0],
-                'x': x,
+                'x': x[..., 0],
                 'variance_offset': VARIANCE_OFFSET,
             }
             fit = self.model.sample(stan_data, **kwargs)

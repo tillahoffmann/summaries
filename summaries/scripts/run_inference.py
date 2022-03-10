@@ -10,7 +10,7 @@ def preprocess_candidate_features(samples: dict[str, np.ndarray]):
     """
     Evaluate simple candidate features.
     """
-    features = [(samples['x'] ** k).mean(axis=-1, keepdims=True) for k in [2, 4, 6, 8]]
+    features = [(samples['x'][..., 0] ** k).mean(axis=-1, keepdims=True) for k in [2, 4, 6, 8]]
     features.append(samples['noise'].mean(axis=-1, keepdims=True))
     return np.hstack(features)
 
@@ -33,11 +33,11 @@ ALGORITHMS = {
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
     'mdn_compressor': (
-        lambda samples: samples['x'][..., None],
+        lambda samples: samples['x'],
         lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path'])
     ),
     'mdn': (
-        lambda samples: samples['x'][..., None],
+        lambda samples: samples['x'],
         lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path'])
     )
 }
@@ -88,7 +88,7 @@ def __main__(args=None):
         logger.setLevel(logging.WARNING)
 
     alg: algorithm.Algorithm = algorithm_cls(
-        features_by_split['train'], samples_by_split['train']['theta'][..., None], args.cls_options)
+        features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)
     posterior_samples, info = alg.sample(features_by_split['test'], args.num_samples,
                                          **args.sample_options)
 
