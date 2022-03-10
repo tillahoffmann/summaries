@@ -1,4 +1,5 @@
 import os
+from summaries import benchmark
 from summaries.scripts import generate_benchmark_data, train_benchmark_mdn
 import tempfile
 import torch as th
@@ -22,7 +23,7 @@ def test_train_benchmark_mdn():
 
         # Load the models and validate the output.
         batch_size = 17
-        x = th.randn(batch_size, 10, 1)
+        x = th.randn(batch_size, 10, 1 + benchmark.NUM_NOISE_FEATURES)
         mdn = th.load(mdn_path)
         dist: th.distributions.MixtureSameFamily = mdn(x)
         dist._mixture_distribution.event_shape == (num_components,)

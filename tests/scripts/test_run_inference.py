@@ -14,7 +14,8 @@ def test_run_inference(algorithm: str):
     num_test = 7
     num_samples = 13
     num_params = 1
-    num_features = 2 + 4  # Four moments for the data and two noise features.
+    # Four moments for the data and two noise features.
+    num_features = 4 + benchmark.NUM_NOISE_FEATURES
     cls_options = None
 
     assert num_train >= num_samples, 'cannot take more samples than there are training points'
@@ -26,12 +27,12 @@ def test_run_inference(algorithm: str):
         generate_benchmark_data.__main__([str(num_test), test_path])
 
         if algorithm == 'mdn_compressor':
-            compressor = nn.DenseCompressor([1, 8, 3], th.nn.Tanh())
+            compressor = nn.DenseCompressor([1 + benchmark.NUM_NOISE_FEATURES, 8, 3], th.nn.Tanh())
             compressor_path = os.path.join(directory, 'compressor.pt')
             th.save(compressor, compressor_path)
             cls_options = {'path': compressor_path}
         elif algorithm == 'mdn':
-            mdn = benchmark.MDNBenchmarkAlgorithm(3, 1)
+            mdn = benchmark.MDNBenchmarkAlgorithm(1 + benchmark.NUM_NOISE_FEATURES, 3, 1)
             mdn_path = os.path.join(directory, 'mdn.pt')
             th.save(mdn, mdn_path)
             cls_options = {'path': mdn_path}

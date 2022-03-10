@@ -1,4 +1,5 @@
 import argparse
+import cmdstanpy
 import json
 import logging
 import numpy as np
@@ -14,6 +15,13 @@ def preprocess_candidate_features(samples: dict[str, np.ndarray]):
         np.mean(samples['x'] ** [2, 4, 6, 8], axis=-2),
         np.mean(samples['noise'], axis=-2)
     ])
+
+
+def concatenate_features(samples: dict[str, np.ndarray]):
+    """
+    Concatenate features into a single feature vector.
+    """
+    return np.concatenate([samples['x'], samples['noise']], axis=-1)
 
 
 ALGORITHMS = {
@@ -34,11 +42,11 @@ ALGORITHMS = {
         lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
     ),
     'mdn_compressor': (
-        lambda samples: samples['x'],
+        concatenate_features,
         lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path'])
     ),
     'mdn': (
-        lambda samples: samples['x'],
+        concatenate_features,
         lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path'])
     )
 }
@@ -54,6 +62,9 @@ class ListAlgorithmsAction(argparse.Action):
 
 
 def __main__(args=None):
+    logging.basicConfig(level=logging.INFO)
+    cmdstanpy.utils.get_logger().setLevel(logging.WARNING)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
                         nargs=0)
@@ -82,11 +93,6 @@ def __main__(args=None):
     # Get a sampling algorithm and optional preprocessor.
     preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
     features_by_split = {key: preprocessor(value) for key, value in samples_by_split.items()}
-
-    # Disable logging for cmdstanpy.
-    if args.algorithm == 'stan':
-        logger = logging.getLogger('cmdstanpy')
-        logger.setLevel(logging.WARNING)
 
     alg: algorithm.Algorithm = algorithm_cls(
         features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)

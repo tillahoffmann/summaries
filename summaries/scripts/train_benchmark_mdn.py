@@ -1,5 +1,6 @@
 import argparse
 import logging
+import numpy as np
 import os
 import pickle
 from summaries import benchmark
@@ -33,17 +34,15 @@ def __main__(args: list[str] = None):
     for key, path in paths.items():
         with open(path, 'rb') as fp:
             samples_ = pickle.load(fp)['samples']
-        dataset = th.utils.data.TensorDataset(
-            # We append a trailing dimension because we only have one-dimensional data.
-            th.as_tensor(samples_['x']),
-            th.as_tensor(samples_['theta'])
-        )
+        data = th.as_tensor(np.concatenate([samples_['x'], samples_['noise']], axis=-1))
+        params = th.as_tensor(samples_['theta'][..., 0])
+        dataset = th.utils.data.TensorDataset(data, params)
         datasets[key] = dataset
     data_loaders = {key: th.utils.data.DataLoader(dataset, args.batch_size, shuffle=True)
                     for key, dataset in datasets.items()}
 
     # Construct the MDN and learning rate schedule.
-    mdn = benchmark.MDNBenchmarkAlgorithm(args.num_components, args.num_features)
+    mdn = benchmark.MDNBenchmarkAlgorithm(data.shape[-1], args.num_components, args.num_features)
     optimizer = th.optim.Adam(mdn.parameters(), args.lr0)
     scheduler = th.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=args.patience // 2)
 
