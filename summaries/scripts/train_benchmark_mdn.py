@@ -5,9 +5,13 @@ import os
 import pickle
 from summaries import benchmark
 import torch as th
+from .util import setup
 
 
 def __main__(args: list[str] = None):
+    logger = logging.getLogger('train_benchmark_mdn')
+    setup()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_features', help='number of summary statistics', type=int, default=1)
     parser.add_argument('--num_components', help='number of mixture components', type=int,
@@ -22,11 +26,6 @@ def __main__(args: list[str] = None):
     parser.add_argument('mdn_output', help='output path for the mixture density network')
     parser.add_argument('compressor_output', help='output for the compressor')
     args = parser.parse_args(args)
-
-    logger = logging.getLogger('train_benchmark_mdn')
-    logging.basicConfig(level='INFO')
-
-    th.manual_seed(0)
 
     # Load the data and create data loaders for training.
     paths = {'train': args.train, 'validation': args.validation}

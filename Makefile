@@ -10,7 +10,8 @@ lint :
 	flake8 --exclude=docs
 
 tests :
-	pytest -v --cov=summaries --cov-fail-under=100 --cov-report=term-missing --cov-report=html
+	pytest -v --cov=summaries --cov-fail-under=100 --cov-report=term-missing --cov-report=html \
+		--durations=10
 
 docs :
 	rm -rf docs/_build/plot_directive
@@ -44,8 +45,7 @@ FIGURE_FUNC_piecewise_likelihood = summaries.examples.piecewise_likelihood:_plot
 FIGURE_FUNC_benchmark = summaries.benchmark:_plot_example
 
 ${FIGURE_TARGETS} : figures/%.pdf : scrartcl.mplstyle
-	python -m summaries.scripts.plot --seed=${FIGURE_SEED_$*} --style=$< \
-		${FIGURE_FUNC_$*} $@
+	SEED=${FIGURE_SEED_$*} python -m summaries.scripts.plot --style=$< ${FIGURE_FUNC_$*} $@
 
 # Generate benchmark data and run inference ========================================================
 
@@ -75,11 +75,11 @@ BENCHMARK_DATA_SEED_debug = 3
 ${BENCHMARK_DATA_ROOT} : ${BENCHMARK_DATA_TARGETS}
 
 ${BENCHMARK_DATA_TARGETS} : ${BENCHMARK_DATA_ROOT}/%.pkl :
-	${ENV} python -m summaries.scripts.generate_benchmark_data --seed=${BENCHMARK_DATA_SEED_$*} \
+	${ENV} SEED=${BENCHMARK_DATA_SEED_$*} python -m summaries.scripts.generate_benchmark_data \
 		${BENCHMARK_DATA_SIZE_$*} $@
 
 ${BENCHMARK_ROOT}/generate_benchmark_data.prof :
-	${ENV} python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data --seed=0 100000 \
+	${ENV} SEED=0 python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data 100000 \
 		${BENCHMARK_DATA_ROOT}/temp.pkl
 
 # Train a mixture density network ------------------------------------------------------------------

@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pickle
 from .. import algorithm, benchmark, nn, util
+from .util import setup
 
 
 def preprocess_candidate_features(samples: dict[str, np.ndarray]):
@@ -62,13 +63,12 @@ class ListAlgorithmsAction(argparse.Action):
 
 
 def __main__(args=None):
-    logging.basicConfig(level=logging.INFO)
+    setup()
     cmdstanpy.utils.get_logger().setLevel(logging.WARNING)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
                         nargs=0)
-    parser.add_argument('--seed', type=int, help='seed for the random number generator')
     parser.add_argument('--cls_options', help='JSON options for the constructor', type=json.loads,
                         default={})
     parser.add_argument('--sample_options', help='JSON options for sampling', type=json.loads,
@@ -79,9 +79,6 @@ def __main__(args=None):
     parser.add_argument('num_samples', type=int, help='number of samples to generate')
     parser.add_argument('output', help='output file path')
     args = parser.parse_args(args)
-
-    if args.seed is not None:
-        np.random.seed(args.seed)
 
     # Load the training and test data.
     samples_by_split = {}

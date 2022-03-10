@@ -40,7 +40,6 @@ def test_run_inference(algorithm: str):
         # Run inference.
         output_path = os.path.join(directory, 'output.pkl')
         args = [
-            '--seed=0',
             algorithm,
             train_path,
             test_path,
