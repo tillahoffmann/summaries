@@ -27,7 +27,9 @@ jobs:
           key: ${{ env.pythonLocation }}-${{ hashFiles('test_requirements.txt') }}
       - name: "Install dependencies"
         run: |
-          pip install -r test_requirements.txt
+          pip install --upgrade pip
+          # We need to ignore dependencies because CI pip reports conflicts with torch dev releases.
+          pip install -r test_requirements.txt --no-deps
           python -m cmdstanpy.install_cmdstan --version ${{ env.cmdstanVersion }}
       - name: "Build the project"
         run: "make build"
