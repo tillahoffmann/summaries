@@ -16,6 +16,23 @@ NUM_NOISE_FEATURES = 2
 NUM_OBSERVATIONS = 10
 
 
+def preprocess_candidate_features(x: np.ndarray) -> np.ndarray:
+    """
+    Evaluate simple candidate features for the benchmark problem.
+
+    Args:
+        x: Data array with shape :code:`(*batch_shape, num_observations, 1 + num_noise_features)`.
+
+    Returns:
+        features: Feature array with shape :code:`(*batch_shape, 4 + noise_features)`, comprising
+            the first four even moments of the data and the mean of noise features.
+    """
+    return np.hstack([
+        np.mean(x[..., :1] ** [2, 4, 6, 8], axis=-2),
+        np.mean(x[..., 1:], axis=-2)
+    ])
+
+
 def evaluate_gaussian_mixture_distribution(theta: th.Tensor) -> th.distributions.MixtureSameFamily:
     """
     Mixture distribution of two Gaussians parameterized such that the data have zero mean and

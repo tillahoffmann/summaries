@@ -2,27 +2,16 @@ import argparse
 import cmdstanpy
 import json
 import logging
-import numpy as np
 import pickle
 from .. import algorithm, benchmark, nn, util
-
-
-def preprocess_candidate_features(x: np.ndarray) -> np.ndarray:
-    """
-    Evaluate simple candidate features.
-    """
-    return np.hstack([
-        np.mean(x[..., :1] ** [2, 4, 6, 8], axis=-2),
-        np.mean(x[..., 1:], axis=-2)
-    ])
 
 
 ALGORITHMS_BY_MODEL = {
     'benchmark': {
         'stan': (None, lambda *_: benchmark.StanBenchmarkAlgorithm()),
-        'naive': (preprocess_candidate_features, algorithm.NearestNeighborAlgorithm),
-        'nunes': (preprocess_candidate_features, algorithm.NunesAlgorithm),
-        'fearnhead': (preprocess_candidate_features, algorithm.FearnheadAlgorithm),
+        'naive': (benchmark.preprocess_candidate_features, algorithm.NearestNeighborAlgorithm),
+        'nunes': (benchmark.preprocess_candidate_features, algorithm.NunesAlgorithm),
+        'fearnhead': (benchmark.preprocess_candidate_features, algorithm.FearnheadAlgorithm),
         'mdn_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
         'mdn': (None, lambda *_, **kwargs: nn.NeuralAlgorithm(**kwargs)),
     },
