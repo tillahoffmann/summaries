@@ -7,63 +7,29 @@ import pickle
 from .. import algorithm, benchmark, nn, util
 
 
-def preprocess_candidate_features(samples: dict[str, np.ndarray]):
+def preprocess_candidate_features(x: np.ndarray) -> np.ndarray:
     """
     Evaluate simple candidate features.
     """
     return np.hstack([
-        np.mean(samples['x'] ** [2, 4, 6, 8], axis=-2),
-        np.mean(samples['noise'], axis=-2)
+        np.mean(x[..., :1] ** [2, 4, 6, 8], axis=-2),
+        np.mean(x[..., 1:], axis=-2)
     ])
-
-
-def concatenate_features(samples: dict[str, np.ndarray]):
-    """
-    Concatenate features into a single feature vector.
-    """
-    return np.concatenate([samples['x'], samples['noise']], axis=-1)
 
 
 ALGORITHMS_BY_MODEL = {
     'benchmark': {
-        'stan': (
-            lambda samples: samples['x'],
-            lambda *_: benchmark.StanBenchmarkAlgorithm(),
-        ),
-        'naive': (
-            preprocess_candidate_features,
-            lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p),
-        ),
-        'nunes': (
-            preprocess_candidate_features,
-            lambda d, p, _: algorithm.NunesAlgorithm(d, p),
-        ),
-        'fearnhead': (
-            preprocess_candidate_features,
-            lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs),
-        ),
-        'mdn_compressor': (
-            concatenate_features,
-            lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path']),
-        ),
-        'mdn': (
-            concatenate_features,
-            lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path']),
-        )
+        'stan': (None, lambda *_: benchmark.StanBenchmarkAlgorithm()),
+        'naive': (preprocess_candidate_features, algorithm.NearestNeighborAlgorithm),
+        'nunes': (preprocess_candidate_features, algorithm.NunesAlgorithm),
+        'fearnhead': (preprocess_candidate_features, algorithm.FearnheadAlgorithm),
+        'mdn_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
+        'mdn': (None, lambda *_, **kwargs: nn.NeuralAlgorithm(**kwargs)),
     },
     'coal': {
-        'naive': (
-            lambda samples: samples['x'],
-            lambda d, p, kwargs: algorithm.NearestNeighborAlgorithm(d, p),
-        ),
-        'fearnhead': (
-            lambda samples: samples['x'],
-            lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p),
-        ),
-        'nunes': (
-            lambda samples: samples['x'],
-            lambda d, p, kwargs: algorithm.NunesAlgorithm(d, p),
-        )
+        'naive': (None, algorithm.NearestNeighborAlgorithm),
+        'fearnhead': (None, algorithm.FearnheadAlgorithm),
+        'nunes': (None, algorithm.NunesAlgorithm),
     }
 }
 ALGORITHMS = set(algo for algos in ALGORITHMS_BY_MODEL.values() for algo in algos)
@@ -96,10 +62,11 @@ def __main__(args=None):
 
     # Get a sampling algorithm and optional preprocessor.
     preprocessor, algorithm_cls = ALGORITHMS_BY_MODEL[args.model][args.algorithm]
-    features_by_split = {key: preprocessor(value) for key, value in samples_by_split.items()}
+    preprocessor = preprocessor or (lambda x: x)
+    features_by_split = {key: preprocessor(value['x']) for key, value in samples_by_split.items()}
 
     alg: algorithm.Algorithm = algorithm_cls(
-        features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)
+        features_by_split['train'], samples_by_split['train']['theta'], **args.cls_options)
     posterior_samples, info = alg.sample(features_by_split['test'], args.num_samples,
                                          **args.sample_options)
 

@@ -1,6 +1,5 @@
 import argparse
 import logging
-import numpy as np
 import os
 import pickle
 from summaries import benchmark
@@ -33,7 +32,7 @@ def __main__(args: list[str] = None):
     for key, path in paths.items():
         with open(path, 'rb') as fp:
             samples_ = pickle.load(fp)['samples']
-        data = th.as_tensor(np.concatenate([samples_['x'], samples_['noise']], axis=-1))
+        data = th.as_tensor(samples_['x'])
         params = th.as_tensor(samples_['theta'][..., 0])
         dataset = th.utils.data.TensorDataset(data, params)
         datasets[key] = dataset

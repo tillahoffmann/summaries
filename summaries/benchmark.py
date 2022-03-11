@@ -57,8 +57,7 @@ def sample(*, theta: th.Tensor = None, size: tuple = None, num_observations: int
     return {
         # Add a trailing dimension of size one for consistency with multidimensional setups.
         'theta': theta[..., None],
-        'x': x[..., None],
-        'noise': th.distributions.Normal(0, 1).sample(noise_shape),
+        'x': th.concat([x[..., None], th.distributions.Normal(0, 1).sample(noise_shape)], axis=-1)
     }
 
 
