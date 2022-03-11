@@ -100,14 +100,14 @@ BENCHMARK_SAMPLE_ROOT = ${BENCHMARK_ROOT}/samples
 # Number of posterior samples.
 NUM_SAMPLES ?= 5000
 # Algorithms, additional algorithm options, and additional algorithm dependencies.
-ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
-ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
-ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"${BENCHMARK_MDN}\"}"
-ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"${BENCHMARK_MDN_COMPRESSOR}\"}"
-ALGORITHM_DEPS_mdn = ${BENCHMARK_MDN}
-ALGORITHM_DEPS_mdn_compressor = ${BENCHMARK_MDN_COMPRESSOR}
+BENCHMARK_ALGORITHMS = stan naive nunes fearnhead mdn_compressor mdn
+BENCHMARK_ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
+BENCHMARK_ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"${BENCHMARK_MDN}\"}"
+BENCHMARK_ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"${BENCHMARK_MDN_COMPRESSOR}\"}"
+BENCHMARK_ALGORITHM_DEPS_mdn = ${BENCHMARK_MDN}
+BENCHMARK_ALGORITHM_DEPS_mdn_compressor = ${BENCHMARK_MDN_COMPRESSOR}
 
-BENCHMARK_SAMPLE_TARGETS = $(addprefix ${BENCHMARK_SAMPLE_ROOT}/,${ALGORITHMS:=.pkl})
+BENCHMARK_SAMPLE_TARGETS = $(addprefix ${BENCHMARK_SAMPLE_ROOT}/,${BENCHMARK_ALGORITHMS:=.pkl})
 
 ${BENCHMARK_SAMPLE_ROOT} : ${BENCHMARK_SAMPLE_TARGETS}
 
@@ -115,7 +115,7 @@ ${BENCHMARK_SAMPLE_TARGETS} : ${BENCHMARK_SAMPLE_ROOT}/%.pkl : \
 		${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl ${BENCHMARK_DATA_ROOT}/${MODE}.pkl \
 		$${ALGORITHM_DEPS_$$*}
 # Args: custom options for the algo, name of algo, train and test data, # samples, output path.
-	${ENV} python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
+	${ENV} python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} benchmark $* \
 		${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl ${BENCHMARK_DATA_ROOT}/${MODE}.pkl ${NUM_SAMPLES} $@
 
 # Download coalescent model data and run inference =================================================
@@ -124,17 +124,31 @@ COAL_ROOT = workspace/coal
 
 # Download and split into train, validation, and test ----------------------------------------------
 
-${COAL_ROOT}/data/coaloracle.rda :
+COAL_DATA_ROOT = ${COAL_ROOT}/data
+
+${COAL_DATA_ROOT}/coaloracle.rda :
 # Thanks to Matt Nunes for sharing!
 	mkdir -p $(dir $@)
 	curl -L -o $@ https://web.archive.org/web/0if_/https://people.bath.ac.uk/man54/computerstuff/otherfiles/ABC/coaloracle.rda
 
-${COAL_ROOT}/data/coaloracle.csv : ${COAL_ROOT}/data/coaloracle.rda
+${COAL_DATA_ROOT}/coaloracle.csv : ${COAL_DATA_ROOT}/coaloracle.rda
 	Rscript --vanilla summaries/scripts/coaloracle_rda2csv.r $< $@
 
-${COAL_ROOT}/data/train.pkl ${COAL_ROOT}/data/validation.pkl ${COAL_ROOT}/data/test.pkl : \
-		${COAL_ROOT}/data/coaloracle.csv
+${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl ${COAL_DATA_ROOT}/test.pkl : \
+		${COAL_DATA_ROOT}/coaloracle.csv
 	SEED=0 python -m summaries.scripts.preprocess_coal $< $(dir $@) test.pkl=1000 validation.pkl=10000 \
 		train.pkl=989000
 
 # Draw posterior samples ---------------------------------------------------------------------------
+
+COAL_ALGORITHMS = naive fearnhead nunes
+COAL_SAMPLE_ROOT = ${COAL_ROOT}/samples
+COAL_SAMPLE_TARGETS = $(addprefix ${COAL_SAMPLE_ROOT}/,${COAL_ALGORITHMS:=.pkl})
+
+${COAL_SAMPLE_ROOT} : ${COAL_SAMPLE_TARGETS}
+
+${COAL_SAMPLE_TARGETS} : ${COAL_SAMPLE_ROOT}/%.pkl : ${COAL_DATA_ROOT}/train.pkl \
+		${COAL_DATA_ROOT}/test.pkl
+# Args: custom options for the algo, name of algo, train and test data, # samples, output path.
+	${ENV} python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} coal $* \
+		${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/test.pkl ${NUM_SAMPLES} $@

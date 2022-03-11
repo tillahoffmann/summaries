@@ -24,41 +24,49 @@ def concatenate_features(samples: dict[str, np.ndarray]):
     return np.concatenate([samples['x'], samples['noise']], axis=-1)
 
 
-ALGORITHMS = {
-    'stan': (
-        lambda samples: samples['x'],
-        lambda *_: benchmark.StanBenchmarkAlgorithm()
-    ),
-    'naive': (
-        preprocess_candidate_features,
-        lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p)
-    ),
-    'nunes': (
-        preprocess_candidate_features,
-        lambda d, p, _: algorithm.NunesAlgorithm(d, p)
-    ),
-    'fearnhead': (
-        preprocess_candidate_features,
-        lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
-    ),
-    'mdn_compressor': (
-        concatenate_features,
-        lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path'])
-    ),
-    'mdn': (
-        concatenate_features,
-        lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path'])
-    )
+ALGORITHMS_BY_MODEL = {
+    'benchmark': {
+        'stan': (
+            lambda samples: samples['x'],
+            lambda *_: benchmark.StanBenchmarkAlgorithm(),
+        ),
+        'naive': (
+            preprocess_candidate_features,
+            lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p),
+        ),
+        'nunes': (
+            preprocess_candidate_features,
+            lambda d, p, _: algorithm.NunesAlgorithm(d, p),
+        ),
+        'fearnhead': (
+            preprocess_candidate_features,
+            lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs),
+        ),
+        'mdn_compressor': (
+            concatenate_features,
+            lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path']),
+        ),
+        'mdn': (
+            concatenate_features,
+            lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path']),
+        )
+    },
+    'coal': {
+        'naive': (
+            lambda samples: samples['x'],
+            lambda d, p, kwargs: algorithm.NearestNeighborAlgorithm(d, p),
+        ),
+        'fearnhead': (
+            lambda samples: samples['x'],
+            lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p),
+        ),
+        'nunes': (
+            lambda samples: samples['x'],
+            lambda d, p, kwargs: algorithm.NunesAlgorithm(d, p),
+        )
+    }
 }
-
-
-class ListAlgorithmsAction(argparse.Action):
-    """
-    Action to list all available algorithms.
-    """
-    def __call__(self, parser: argparse.ArgumentParser, *args, **kwargs):  # pragma: no cover
-        print(' '.join(ALGORITHMS))
-        parser.exit()
+ALGORITHMS = set(algo for algos in ALGORITHMS_BY_MODEL.values() for algo in algos)
 
 
 def __main__(args=None):
@@ -66,12 +74,12 @@ def __main__(args=None):
     cmdstanpy.utils.get_logger().setLevel(logging.WARNING)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
-                        nargs=0)
     parser.add_argument('--cls_options', help='JSON options for the constructor', type=json.loads,
                         default={})
     parser.add_argument('--sample_options', help='JSON options for sampling', type=json.loads,
                         default={})
+    parser.add_argument('model', help='model for inference; needed for preprocessing',
+                        choices=['benchmark', 'coal'])
     parser.add_argument('algorithm', help='algorithm to run', choices=ALGORITHMS)
     parser.add_argument('train', help='training data path')
     parser.add_argument('test', help='test data path')
@@ -87,7 +95,7 @@ def __main__(args=None):
         samples_by_split[key] = data['samples']
 
     # Get a sampling algorithm and optional preprocessor.
-    preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
+    preprocessor, algorithm_cls = ALGORITHMS_BY_MODEL[args.model][args.algorithm]
     features_by_split = {key: preprocessor(value) for key, value in samples_by_split.items()}
 
     alg: algorithm.Algorithm = algorithm_cls(

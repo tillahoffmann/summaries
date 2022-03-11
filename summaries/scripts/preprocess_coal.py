@@ -34,7 +34,7 @@ def __main__(args=None):
             }
         }
 
-        with open(os.path.join(args.directory, filename), 'wb') as fp:
+        with util.sopen(os.path.join(args.directory, filename), 'wb') as fp:
             pickle.dump(result, fp)
 
 

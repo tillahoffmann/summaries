@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import os
 import pickle
 import pytest
@@ -8,38 +9,57 @@ import tempfile
 import torch as th
 
 
+@pytest.mark.parametrize('model', run_inference.ALGORITHMS_BY_MODEL)
 @pytest.mark.parametrize('algorithm', run_inference.ALGORITHMS)
-def test_run_inference(algorithm: str):
+def test_run_inference(model: str, algorithm: str):
     num_train = 20
     num_test = 7
     num_samples = 13
-    num_params = 1
-    # Four moments for the data and two noise features.
-    num_features = 4 + benchmark.NUM_NOISE_FEATURES
-    cls_options = None
-
     assert num_train >= num_samples, 'cannot take more samples than there are training points'
+    cls_options = None
 
     with tempfile.TemporaryDirectory() as directory:
         train_path = os.path.join(directory, 'train.pkl')
-        generate_benchmark_data.__main__([str(num_train), train_path])
         test_path = os.path.join(directory, 'test.pkl')
-        generate_benchmark_data.__main__([str(num_test), test_path])
 
-        if algorithm == 'mdn_compressor':
-            compressor = nn.DenseCompressor([1 + benchmark.NUM_NOISE_FEATURES, 8, 3], th.nn.Tanh())
-            compressor_path = os.path.join(directory, 'compressor.pt')
-            th.save(compressor, compressor_path)
-            cls_options = {'path': compressor_path}
-        elif algorithm == 'mdn':
-            mdn = benchmark.MDNBenchmarkModule(1 + benchmark.NUM_NOISE_FEATURES, 3, 1)
-            mdn_path = os.path.join(directory, 'mdn.pt')
-            th.save(mdn, mdn_path)
-            cls_options = {'path': mdn_path}
+        if model == 'coal':
+            if algorithm in {'stan', 'mdn', 'mdn_compressor'}:
+                pytest.skip(f'{algorithm} not supported for {model} model')
+            num_params = 2
+            num_features = 7
+
+            for path, size in [(train_path, num_train), (test_path, num_test)]:
+                with open(path, 'wb') as fp:
+                    pickle.dump({'samples': {
+                        'x': np.random.normal(0, 1, (size, num_features)),
+                        'theta': np.random.normal(0, 1, (size, num_params)),
+                    }}, fp)
+
+        elif model == 'benchmark':
+            num_params = 1
+            num_features = 4 + benchmark.NUM_NOISE_FEATURES
+
+            if algorithm == 'mdn_compressor':
+                compressor = nn.DenseCompressor([1 + benchmark.NUM_NOISE_FEATURES, 8, 3],
+                                                th.nn.Tanh())
+                compressor_path = os.path.join(directory, 'compressor.pt')
+                th.save(compressor, compressor_path)
+                cls_options = {'path': compressor_path}
+            elif algorithm == 'mdn':
+                mdn = benchmark.MDNBenchmarkModule(1 + benchmark.NUM_NOISE_FEATURES, 3, 1)
+                mdn_path = os.path.join(directory, 'mdn.pt')
+                th.save(mdn, mdn_path)
+                cls_options = {'path': mdn_path}
+
+            generate_benchmark_data.__main__([str(num_train), train_path])
+            generate_benchmark_data.__main__([str(num_test), test_path])
+        else:
+            raise NotImplementedError(model)
 
         # Run inference.
         output_path = os.path.join(directory, 'output.pkl')
         args = [
+            model,
             algorithm,
             train_path,
             test_path,
