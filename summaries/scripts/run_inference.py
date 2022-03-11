@@ -5,7 +5,6 @@ import logging
 import numpy as np
 import pickle
 from .. import algorithm, benchmark, nn, util
-from .util import setup
 
 
 def preprocess_candidate_features(samples: dict[str, np.ndarray]):
@@ -63,7 +62,7 @@ class ListAlgorithmsAction(argparse.Action):
 
 
 def __main__(args=None):
-    setup()
+    util.setup_script()
     cmdstanpy.utils.get_logger().setLevel(logging.WARNING)
 
     parser = argparse.ArgumentParser()

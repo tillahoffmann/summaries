@@ -1,4 +1,5 @@
 import functools as ft
+import logging
 import matplotlib.axes
 import matplotlib.colors
 import numbers
@@ -294,3 +295,17 @@ def sopen(file, mode, *args, **kwargs):
     if any(m in mode for m in 'awx'):
         os.makedirs(os.path.dirname(file), exist_ok=True)
     return open(file, mode, *args, **kwargs)
+
+
+def setup_script():
+    """
+    General script setup based on environment variables.
+    """
+    level = os.environ.get('LOGLEVEL', 'warning')
+    logging.basicConfig(level=level.upper())
+
+    seed = os.environ.get('SEED')
+    if seed is not None:
+        seed = int(seed)
+        np.random.seed(seed)
+        th.manual_seed(seed)

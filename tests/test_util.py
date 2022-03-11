@@ -1,5 +1,6 @@
 import matplotlib.colors
 from matplotlib import pyplot as plt
+from unittest import mock
 import numpy as np
 import pytest
 from scipy import stats
@@ -138,3 +139,13 @@ def test_normalize_shape():
     assert summaries.normalize_shape(None) == ()
     assert summaries.normalize_shape(5) == (5,)
     assert summaries.normalize_shape((4, 5)) == (4, 5)
+
+
+def test_setup_with_seed():
+    with mock.patch('os.environ.get') as env_get, mock.patch('numpy.random.seed') as np_seed, \
+            mock.patch('torch.manual_seed') as th_seed, mock.patch('logging.basicConfig') as config:
+        env_get.side_effect = ('debug', 23)
+        summaries.setup_script()
+        config.assert_called_once_with(level='DEBUG')
+        np_seed.assert_called_once_with(23)
+        th_seed.assert_called_once_with(23)

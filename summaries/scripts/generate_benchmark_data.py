@@ -6,11 +6,10 @@ import torch as th
 from tqdm import tqdm
 from .. import benchmark
 from .. import util
-from .util import setup
 
 
 def __main__(args=None):
-    setup()
+    util.setup_script()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_observations', type=int, help='number of observations per sample',

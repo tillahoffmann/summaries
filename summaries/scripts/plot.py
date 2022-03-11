@@ -2,11 +2,11 @@ import argparse
 import importlib
 import json
 import matplotlib.style
-from .util import setup
+from .. import util
 
 
 def __main__(args=None):
-    setup()
+    util.setup_script()
     parser = argparse.ArgumentParser()
     parser.add_argument('plot_function', help='package.module:function of the plotting function')
     parser.add_argument('output', help='output path for the figure')

@@ -5,12 +5,12 @@ import os
 import pickle
 from summaries import benchmark
 import torch as th
-from .util import setup
+from .. import util
 
 
 def __main__(args: list[str] = None):
     logger = logging.getLogger('train_benchmark_mdn')
-    setup()
+    util.setup_script()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_features', help='number of summary statistics', type=int, default=1)
