@@ -1,6 +1,6 @@
 .SECONDEXPANSION :
 .PHONY : docs lint sync tests figures ${BENCHMARK_ROOT} ${BENCHMARK_DATA_ROOT} \
-	${BENCHMARK_SAMPLE_ROOT}
+	${BENCHMARK_SAMPLE_ROOT} ${COAL_ROOT} ${COAL_DATA_ROOT} ${COAL_SAMPLE_ROOT}
 
 ENV = NUMEXPR_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 
@@ -117,3 +117,24 @@ ${BENCHMARK_SAMPLE_TARGETS} : ${BENCHMARK_SAMPLE_ROOT}/%.pkl : \
 # Args: custom options for the algo, name of algo, train and test data, # samples, output path.
 	${ENV} python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
 		${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl ${BENCHMARK_DATA_ROOT}/${MODE}.pkl ${NUM_SAMPLES} $@
+
+# Download coalescent model data and run inference =================================================
+
+COAL_ROOT = workspace/coal
+
+# Download and split into train, validation, and test ----------------------------------------------
+
+${COAL_ROOT}/data/coaloracle.rda :
+# Thanks to Matt Nunes for sharing!
+	mkdir -p $(dir $@)
+	curl -L -o $@ https://web.archive.org/web/0if_/https://people.bath.ac.uk/man54/computerstuff/otherfiles/ABC/coaloracle.rda
+
+${COAL_ROOT}/data/coaloracle.csv : ${COAL_ROOT}/data/coaloracle.rda
+	Rscript --vanilla summaries/scripts/coaloracle_rda2csv.r $< $@
+
+${COAL_ROOT}/data/train.pkl ${COAL_ROOT}/data/validation.pkl ${COAL_ROOT}/data/test.pkl : \
+		${COAL_ROOT}/data/coaloracle.csv
+	SEED=0 python -m summaries.scripts.preprocess_coal $< $(dir $@) test.pkl=1000 validation.pkl=10000 \
+		train.pkl=989000
+
+# Draw posterior samples ---------------------------------------------------------------------------
