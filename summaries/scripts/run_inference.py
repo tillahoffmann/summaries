@@ -12,13 +12,15 @@ ALGORITHMS_BY_MODEL = {
         'naive': (benchmark.preprocess_candidate_features, algorithm.NearestNeighborAlgorithm),
         'nunes': (benchmark.preprocess_candidate_features, algorithm.NunesAlgorithm),
         'fearnhead': (benchmark.preprocess_candidate_features, algorithm.FearnheadAlgorithm),
-        'mdn_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
-        'mdn': (None, lambda *_, **kwargs: nn.NeuralAlgorithm(**kwargs)),
+        'neural_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
+        'mdn': (None, lambda *_, **kwargs: nn.NeuralDensityAlgorithm(**kwargs)),
     },
     'coal': {
         'naive': (None, algorithm.NearestNeighborAlgorithm),
         'fearnhead': (None, algorithm.FearnheadAlgorithm),
         'nunes': (None, algorithm.NunesAlgorithm),
+        'neural_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
+        'mdn': (None, lambda *_, **kwargs: nn.NeuralDensityAlgorithm(**kwargs)),
     }
 }
 ALGORITHMS = set(algo for algos in ALGORITHMS_BY_MODEL.values() for algo in algos)
@@ -33,7 +35,7 @@ def __main__(args=None):
                         default={})
     parser.add_argument('--sample_options', help='JSON options for sampling', type=json.loads,
                         default={})
-    parser.add_argument('model', help='model for inference; needed for preprocessing',
+    parser.add_argument('model', help='model whose parameters to infer',
                         choices=['benchmark', 'coal'])
     parser.add_argument('algorithm', help='algorithm to run', choices=ALGORITHMS)
     parser.add_argument('train', help='training data path')

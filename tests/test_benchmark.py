@@ -63,3 +63,9 @@ def test_benchmark_batch_sample():
     assert batch['theta'].shape == (batch_size, 1)
     assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS,
                                 1 + benchmark.NUM_NOISE_FEATURES)
+
+
+def preprocess_candidate_features():
+    batch = benchmark.sample(size=47)
+    features = benchmark.preprocess_candidate_features(batch['x'])
+    assert features.shape == (47, 6)

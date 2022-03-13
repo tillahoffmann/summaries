@@ -3,8 +3,8 @@ import numpy as np
 import os
 import pickle
 import pytest
-from summaries import benchmark, nn
-from summaries.scripts import generate_benchmark_data, run_inference
+from summaries import benchmark, coal, nn
+from summaries.scripts import run_inference
 import tempfile
 import torch as th
 
@@ -16,45 +16,60 @@ def test_run_inference(model: str, algorithm: str):
     num_test = 7
     num_samples = 13
     assert num_train >= num_samples, 'cannot take more samples than there are training points'
+
+    if model == 'coal':
+        num_dims = num_features = 7
+        num_params = 2
+        obs_shape = ()
+    elif model == 'benchmark':
+        num_dims = 3
+        num_features = 4 + benchmark.NUM_NOISE_FEATURES
+        num_params = 1
+        obs_shape = (10,)
+    else:
+        raise NotImplementedError(model)
+
     cls_options = None
 
     with tempfile.TemporaryDirectory() as directory:
+        # Generate data to test on.
         train_path = os.path.join(directory, 'train.pkl')
         test_path = os.path.join(directory, 'test.pkl')
+        for path, size in [(train_path, num_train), (test_path, num_test)]:
+            data = {
+                'samples': {
+                    'x': np.random.normal(0, 1, (size, *obs_shape, num_dims)),
+                    'theta': np.random.uniform(0, 10, (size, num_params)),
+                }
+            }
+            with open(path, 'wb') as fp:
+                pickle.dump(data, fp)
 
-        if model == 'coal':
-            if algorithm in {'stan', 'mdn', 'mdn_compressor'}:
-                pytest.skip(f'{algorithm} not supported for {model} model')
-            num_params = 2
-            num_features = 7
+        # Run algorithm-specific preparation.
+        if algorithm == 'stan' and model == 'coal':
+            pytest.skip('likelihood is not available for coalescent model')
 
-            for path, size in [(train_path, num_train), (test_path, num_test)]:
-                with open(path, 'wb') as fp:
-                    pickle.dump({'samples': {
-                        'x': np.random.normal(0, 1, (size, num_features)),
-                        'theta': np.random.normal(0, 1, (size, num_params)),
-                    }}, fp)
+        if algorithm in {'mdn', 'neural_compressor'}:
+            nn_path = os.path.join(directory, 'nn.pt')
 
-        elif model == 'benchmark':
-            num_params = 1
-            num_features = 4 + benchmark.NUM_NOISE_FEATURES
+            if model == 'benchmark':
+                module = nn.DenseCompressor([num_dims, num_params + 1], th.nn.Tanh())
+            elif model == 'coal':
+                module = nn.DenseStack([num_dims, num_params + 1], th.nn.Tanh())
+            else:
+                raise NotImplementedError(model)
 
-            if algorithm == 'mdn_compressor':
-                compressor = nn.DenseCompressor([1 + benchmark.NUM_NOISE_FEATURES, 8, 3],
-                                                th.nn.Tanh())
-                compressor_path = os.path.join(directory, 'compressor.pt')
-                th.save(compressor, compressor_path)
-                cls_options = {'path': compressor_path}
-            elif algorithm == 'mdn':
-                mdn = benchmark.MDNBenchmarkModule(1 + benchmark.NUM_NOISE_FEATURES, 3, 1)
-                mdn_path = os.path.join(directory, 'mdn.pt')
-                th.save(mdn, mdn_path)
-                cls_options = {'path': mdn_path}
+            if algorithm == 'mdn':
+                if model == 'benchmark':
+                    module = benchmark.MixtureDensityNetwork(module, [num_params + 1, 7],
+                                                             th.nn.Tanh())
+                elif model == 'coal':
+                    module = coal.MixtureDensityNetwork(module, [num_params + 1, 7], th.nn.Tanh())
+                else:
+                    raise NotImplementedError(model)
 
-            generate_benchmark_data.__main__([str(num_train), train_path])
-            generate_benchmark_data.__main__([str(num_test), test_path])
-        else:
-            raise NotImplementedError(model)
+            th.save(module, nn_path)
+            cls_options = {'path': nn_path}
 
         # Run inference.
         output_path = os.path.join(directory, 'output.pkl')
@@ -81,7 +96,7 @@ def test_run_inference(model: str, algorithm: str):
         assert info['best_mask'].shape == (num_test, num_features)
         assert info['masks'].shape == (2 ** num_features - 1, num_features)
         assert info['losses'].shape == (2 ** num_features - 1, num_test)
-    elif algorithm in {'naive', 'mdn_compressor'} or algorithm.startswith('fearnhead'):
+    elif algorithm in {'naive', 'neural_compressor', 'fearnhead'}:
         assert info['distances'].shape == (num_test, num_samples)
         assert info['indices'].shape == (num_test, num_samples)
         assert not algorithm.startswith('fearnhead') \

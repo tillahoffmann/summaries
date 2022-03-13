@@ -57,7 +57,7 @@ class NeuralCompressorNearestNeighborAlgorithm(algorithm.StaticCompressorNearest
             return self.model(x)
 
 
-class NeuralAlgorithm(algorithm.Algorithm):
+class NeuralDensityAlgorithm(algorithm.Algorithm):
     """
     Draw samples from the posterior using a distribution parameterized by a neural network.
     """
@@ -74,5 +74,5 @@ class NeuralAlgorithm(algorithm.Algorithm):
 
         # Draw a sample and move the sample batch dimension to the second to last position.
         sample: th.Tensor = dist.sample([num_samples])
-        sample = sample.moveaxis(0, -1)[..., None]
-        return sample, None
+        sample = sample.moveaxis(0, -2)
+        return sample.numpy(), None

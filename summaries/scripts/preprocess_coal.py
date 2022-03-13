@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 import os
 import pandas as pd
 import pickle
@@ -29,8 +30,8 @@ def __main__(args=None):
             'args': vars(args),
             'filename': filename,
             'samples': {
-                'theta': split[['theta', 'rho']].values,
-                'x': split[[f'C{i}' for i in range(1, 8)]].values,
+                'theta': split[['theta', 'rho']].values.astype(np.float32),
+                'x': split[[f'C{i}' for i in range(1, 8)]].values.astype(np.float32),
             }
         }
 

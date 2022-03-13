@@ -7,7 +7,7 @@ import torch as th
 from tqdm import tqdm
 import typing
 from .algorithm import Algorithm
-from .nn import DenseCompressor, DenseStack
+from .nn import DenseStack
 from .util import label_axes, normalize_shape
 
 
@@ -181,40 +181,41 @@ class StanBenchmarkAlgorithm(Algorithm):
         return 1
 
 
-class MDNBenchmarkModule(th.nn.Module):
+class MixtureDensityNetwork(th.nn.Module):
     """
     Simple Gaussian mixture density network for the benchmark problem.
 
     Args:
-        num_dims: Number of input dimensions.
-        num_components: Number of components of the Gaussian mixture model.
-        num_features: Number of hidden features serving as summary statistics.
+        compressor: Module to compress data to summary statistics.
+        expansion_nodes: Number of nodes in hidden layers to expand from statistics to mixture
+            density parameters. The first number of nodes must match the number of statistics. The
+            last number of nodes is the number of components of the mixture.
     """
-    def __init__(self, num_dims: int, num_components: int, num_features: int) -> None:
+    def __init__(self, compressor: th.nn.Module, expansion_nodes: list[int],
+                 activation: th.nn.Module) -> None:
         super().__init__()
-        self.num_dims = num_dims
-        self.num_features = num_features
-        self.num_components = num_components
-        self.compressor = DenseCompressor([num_dims, 16, 16, num_features], th.nn.Tanh())
-        self.logit_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
-        self.loc_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
-        self.log_scale_layers = DenseStack([num_features, 16, num_components], th.nn.Tanh())
+        self.compressor = compressor
+        self.logits = DenseStack(expansion_nodes, activation)
+        self.locs = DenseStack(expansion_nodes, activation)
+        self.log_scales = DenseStack(expansion_nodes, activation)
 
-    def forward(self, x: th.Tensor) -> th.distributions.MixtureSameFamily:
-        # Compress the data.
-        *batch_size, _num_obs, _num_dims = x.shape
-        x = self.compressor(x)
-        assert x.shape == (*batch_size, self.num_features)
+    def forward(self, x: th.Tensor) -> th.distributions.Distribution:
+        # Compress the data and ensure we lost one dimension.
+        y: th.Tensor = self.compressor(x)
+        assert y.ndim == x.ndim - 1
 
         # Estimate properties of the Gaussian mixture.
-        logits = self.logit_layers(x)
-        locs = self.loc_layers(x)
-        scales = self.log_scale_layers(x).exp()
-        for x in logits, locs, scales:
-            assert x.shape == (*batch_size, self.num_components)
+        logits = self.logits(y)
+        locs = self.locs(y)
+        scales = self.log_scales(y).exp()
 
+        # We create a normal distribution with one-dimensional event shape to match the convention
+        # of `(batch_shape, num_params)`.
+        component_distribution = th.distributions.Independent(
+            th.distributions.Normal(locs[..., None], scales[..., None]), 1
+        )
         dist = th.distributions.MixtureSameFamily(
             th.distributions.Categorical(logits=logits),
-            th.distributions.Normal(locs, scales),
+            component_distribution,
         )
         return dist
