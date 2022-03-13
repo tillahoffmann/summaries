@@ -106,7 +106,7 @@ ${BENCHMARK_REGRESSOR} : ${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl \
 
 BENCHMARK_SAMPLE_ROOT = ${BENCHMARK_ROOT}/samples
 # Number of posterior samples.
-NUM_SAMPLES ?= 5000
+NUM_SAMPLES = 5000
 # Algorithms, additional algorithm options, and additional algorithm dependencies.
 BENCHMARK_ALGORITHMS = stan naive nunes fearnhead mdn mdn_compressor regressor
 # Extra arguments for the algorithms.
@@ -175,8 +175,6 @@ ${COAL_REGRESSOR} : ${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl
 # Draw posterior samples using different algorithms ------------------------------------------------
 
 COAL_SAMPLE_ROOT = ${COAL_ROOT}/samples
-# Number of posterior samples.
-NUM_SAMPLES ?= 5000
 # Algorithms, additional algorithm options, and additional algorithm dependencies.
 COAL_ALGORITHMS = naive nunes fearnhead mdn mdn_compressor regressor
 # Extra arguments for the algorithms.
