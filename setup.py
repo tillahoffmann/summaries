@@ -12,7 +12,7 @@ setup(
         'pandas',
         'scikit-learn',
         'scipy',
-        'torch>1.12.0dev20220301',
+        'torch',
         'tqdm',
     ],
     extras_require={

@@ -21,10 +21,10 @@ sync : requirements.txt
 	pip-sync
 
 requirements.txt : requirements.in setup.py test_requirements.txt
-	pip-compile -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html --pre -o $@ $<
+	pip-compile -v -o $@ $<
 
 test_requirements.txt : test_requirements.in setup.py
-	pip-compile -v -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html --pre -o $@ $<
+	pip-compile -v -o $@ $<
 
 # Generate figures =================================================================================
 
