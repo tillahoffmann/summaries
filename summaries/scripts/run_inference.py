@@ -2,63 +2,28 @@ import argparse
 import cmdstanpy
 import json
 import logging
-import numpy as np
 import pickle
 from .. import algorithm, benchmark, nn, util
 
 
-def preprocess_candidate_features(samples: dict[str, np.ndarray]):
-    """
-    Evaluate simple candidate features.
-    """
-    return np.hstack([
-        np.mean(samples['x'] ** [2, 4, 6, 8], axis=-2),
-        np.mean(samples['noise'], axis=-2)
-    ])
-
-
-def concatenate_features(samples: dict[str, np.ndarray]):
-    """
-    Concatenate features into a single feature vector.
-    """
-    return np.concatenate([samples['x'], samples['noise']], axis=-1)
-
-
-ALGORITHMS = {
-    'stan': (
-        lambda samples: samples['x'],
-        lambda *_: benchmark.StanBenchmarkAlgorithm()
-    ),
-    'naive': (
-        preprocess_candidate_features,
-        lambda d, p, _: algorithm.NearestNeighborAlgorithm(d, p)
-    ),
-    'nunes': (
-        preprocess_candidate_features,
-        lambda d, p, _: algorithm.NunesAlgorithm(d, p)
-    ),
-    'fearnhead': (
-        preprocess_candidate_features,
-        lambda d, p, kwargs: algorithm.FearnheadAlgorithm(d, p, **kwargs)
-    ),
-    'mdn_compressor': (
-        concatenate_features,
-        lambda d, p, kwargs: nn.NeuralCompressorNearestNeighborAlgorithm(d, p, kwargs['path'])
-    ),
-    'mdn': (
-        concatenate_features,
-        lambda d, p, kwargs: nn.NeuralAlgorithm(kwargs['path'])
-    )
+ALGORITHMS_BY_MODEL = {
+    'benchmark': {
+        'stan': (None, lambda *_: benchmark.StanBenchmarkAlgorithm()),
+        'naive': (benchmark.preprocess_candidate_features, algorithm.NearestNeighborAlgorithm),
+        'nunes': (benchmark.preprocess_candidate_features, algorithm.NunesAlgorithm),
+        'fearnhead': (benchmark.preprocess_candidate_features, algorithm.FearnheadAlgorithm),
+        'neural_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
+        'mdn': (None, lambda *_, **kwargs: nn.NeuralDensityAlgorithm(**kwargs)),
+    },
+    'coal': {
+        'naive': (None, algorithm.NearestNeighborAlgorithm),
+        'fearnhead': (None, algorithm.FearnheadAlgorithm),
+        'nunes': (None, algorithm.NunesAlgorithm),
+        'neural_compressor': (None, nn.NeuralCompressorNearestNeighborAlgorithm),
+        'mdn': (None, lambda *_, **kwargs: nn.NeuralDensityAlgorithm(**kwargs)),
+    }
 }
-
-
-class ListAlgorithmsAction(argparse.Action):
-    """
-    Action to list all available algorithms.
-    """
-    def __call__(self, parser: argparse.ArgumentParser, *args, **kwargs):  # pragma: no cover
-        print(' '.join(ALGORITHMS))
-        parser.exit()
+ALGORITHMS = set(algo for algos in ALGORITHMS_BY_MODEL.values() for algo in algos)
 
 
 def __main__(args=None):
@@ -66,12 +31,12 @@ def __main__(args=None):
     cmdstanpy.utils.get_logger().setLevel(logging.WARNING)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--list', action=ListAlgorithmsAction, help='list all available algorithms',
-                        nargs=0)
     parser.add_argument('--cls_options', help='JSON options for the constructor', type=json.loads,
                         default={})
     parser.add_argument('--sample_options', help='JSON options for sampling', type=json.loads,
                         default={})
+    parser.add_argument('model', help='model whose parameters to infer',
+                        choices=['benchmark', 'coal'])
     parser.add_argument('algorithm', help='algorithm to run', choices=ALGORITHMS)
     parser.add_argument('train', help='training data path')
     parser.add_argument('test', help='test data path')
@@ -87,11 +52,12 @@ def __main__(args=None):
         samples_by_split[key] = data['samples']
 
     # Get a sampling algorithm and optional preprocessor.
-    preprocessor, algorithm_cls = ALGORITHMS[args.algorithm]
-    features_by_split = {key: preprocessor(value) for key, value in samples_by_split.items()}
+    preprocessor, algorithm_cls = ALGORITHMS_BY_MODEL[args.model][args.algorithm]
+    preprocessor = preprocessor or (lambda x: x)
+    features_by_split = {key: preprocessor(value['x']) for key, value in samples_by_split.items()}
 
     alg: algorithm.Algorithm = algorithm_cls(
-        features_by_split['train'], samples_by_split['train']['theta'], args.cls_options)
+        features_by_split['train'], samples_by_split['train']['theta'], **args.cls_options)
     posterior_samples, info = alg.sample(features_by_split['test'], args.num_samples,
                                          **args.sample_options)
 

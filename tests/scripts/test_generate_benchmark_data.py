@@ -12,5 +12,4 @@ def test_generate_benchmark_data():
     dump_.assert_called_once()
     (result, _), _ = dump_.call_args
     assert 'args' in result
-    assert result['samples']['x'].shape == (23, 17, 1)
-    assert result['samples']['noise'].shape == (23, 17, 5)
+    assert result['samples']['x'].shape == (23, 17, 1 + 5)

@@ -26,7 +26,7 @@ docutils==0.17.1
     # via sphinx
 flake8==4.0.1
     # via summaries
-fonttools==4.29.1
+fonttools==4.30.0
     # via matplotlib
 idna==3.3
     # via requests
@@ -48,7 +48,7 @@ matplotlib==3.5.1
     # via summaries
 mccabe==0.6.1
     # via flake8
-numpy==1.22.2
+numpy==1.22.3
     # via
     #   cmdstanpy
     #   matplotlib
@@ -86,7 +86,7 @@ pytest==7.0.1
     # via
     #   pytest-cov
     #   summaries
-pytest-bootstrap==0.2.2
+pytest-bootstrap==0.2.3
     # via summaries
 pytest-cov==3.0.0
     # via summaries
@@ -130,7 +130,7 @@ tomli==2.0.1
     # via
     #   coverage
     #   pytest
-torch==1.10.2
+torch==1.11.0
     # via summaries
 tqdm==4.63.0
     # via

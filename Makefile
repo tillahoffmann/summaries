@@ -1,6 +1,6 @@
 .SECONDEXPANSION :
 .PHONY : docs lint sync tests figures ${BENCHMARK_ROOT} ${BENCHMARK_DATA_ROOT} \
-	${BENCHMARK_SAMPLE_ROOT}
+	${BENCHMARK_SAMPLE_ROOT} ${COAL_ROOT} ${COAL_DATA_ROOT} ${COAL_SAMPLE_ROOT}
 
 ENV = NUMEXPR_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 
@@ -82,38 +82,120 @@ ${BENCHMARK_ROOT}/generate_benchmark_data.prof :
 	${ENV} SEED=0 python -m cProfile -o $@ -m summaries.scripts.generate_benchmark_data 100000 \
 		${BENCHMARK_DATA_ROOT}/temp.pkl
 
-# Train a mixture density network ------------------------------------------------------------------
+# Train a mixture density network and regressor ----------------------------------------------------
 
-BENCHMARK_MDN = ${BENCHMARK_ROOT}/${REFERENCE}_mdn.pt
-BENCHMARK_MDN_COMPRESSOR = ${BENCHMARK_ROOT}/${REFERENCE}_mdn_compressor.pt
+BENCHMARK_MDN = ${BENCHMARK_ROOT}/mdn.pt
+BENCHMARK_MDN_COMPRESSOR = ${BENCHMARK_ROOT}/mdn_compressor.pt
+BENCHMARK_REGRESSOR = ${BENCHMARK_ROOT}/regressor.pt
 
-${BENCHMARK_ROOT}/mdn : ${BENCHMARK_MDN} ${BENCHMARK_MDN_COMPRESSOR}
+${BENCHMARK_ROOT}/neural_compressors : ${BENCHMARK_MDN} ${BENCHMARK_MDN_COMPRESSOR}
+	${BENCHMARK_MSE_COMPRESSOR}
 
 ${BENCHMARK_MDN} ${BENCHMARK_MDN_COMPRESSOR} : ${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl \
 		${BENCHMARK_DATA_ROOT}/validation.pkl
-	${ENV} python -m summaries.scripts.train_benchmark_mdn $^ ${BENCHMARK_MDN} \
-		${BENCHMARK_MDN_COMPRESSOR}
+# The initialisation affects the performance of the model. We fix it here for a "good enough" seed.
+	SEED=1 ${ENV} LOGLEVEL=info python -m summaries.scripts.train_nn --mdn_output=${BENCHMARK_MDN} \
+		benchmark mdn $^ ${BENCHMARK_MDN_COMPRESSOR}
+
+${BENCHMARK_REGRESSOR} : ${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl \
+		${BENCHMARK_DATA_ROOT}/validation.pkl
+	SEED=1 ${ENV} LOGLEVEL=info python -m summaries.scripts.train_nn benchmark \
+		regressor $^ $@
 
 # Draw posterior samples using different algorithms ------------------------------------------------
 
 BENCHMARK_SAMPLE_ROOT = ${BENCHMARK_ROOT}/samples
 # Number of posterior samples.
-NUM_SAMPLES ?= 5000
+NUM_SAMPLES = 5000
 # Algorithms, additional algorithm options, and additional algorithm dependencies.
-ALGORITHMS = $(shell python -m summaries.scripts.run_inference --list)
-ALGORITHM_OPTIONS_stan = '--sample_options={"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
-ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"${BENCHMARK_MDN}\"}"
-ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"${BENCHMARK_MDN_COMPRESSOR}\"}"
-ALGORITHM_DEPS_mdn = ${BENCHMARK_MDN}
-ALGORITHM_DEPS_mdn_compressor = ${BENCHMARK_MDN_COMPRESSOR}
+BENCHMARK_ALGORITHMS = stan naive nunes fearnhead mdn mdn_compressor regressor
+# Extra arguments for the algorithms.
+BENCHMARK_ALGORITHM_OPTIONS_stan = "--sample_options={\"keep_fits\": true, \"seed\": 0, \"adapt_delta\": 0.99}"
+BENCHMARK_ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"${BENCHMARK_MDN}\"}"
+BENCHMARK_ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"${BENCHMARK_MDN_COMPRESSOR}\"}"
+BENCHMARK_ALGORITHM_OPTIONS_regressor = "--cls_options={\"path\": \"${BENCHMARK_REGRESSOR}\"}"
+# Algorithm name if different from the target.
+BENCHMARK_ALGORITHM_mdn_compressor = neural_compressor
+BENCHMARK_ALGORITHM_regressor = neural_compressor
+# Extra dependencies for the algorithms.
+BENCHMARK_ALGORITHM_DEPS_mdn = ${BENCHMARK_MDN}
+BENCHMARK_ALGORITHM_DEPS_mdn_compressor = ${BENCHMARK_MDN_COMPRESSOR}
+BENCHMARK_ALGORITHM_DEPS_regressor = ${BENCHMARK_REGRESSOR}
 
-BENCHMARK_SAMPLE_TARGETS = $(addprefix ${BENCHMARK_SAMPLE_ROOT}/,${ALGORITHMS:=.pkl})
+BENCHMARK_SAMPLE_TARGETS = $(addprefix ${BENCHMARK_SAMPLE_ROOT}/,${BENCHMARK_ALGORITHMS:=.pkl})
 
 ${BENCHMARK_SAMPLE_ROOT} : ${BENCHMARK_SAMPLE_TARGETS}
 
 ${BENCHMARK_SAMPLE_TARGETS} : ${BENCHMARK_SAMPLE_ROOT}/%.pkl : \
 		${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl ${BENCHMARK_DATA_ROOT}/${MODE}.pkl \
-		$${ALGORITHM_DEPS_$$*}
+		$${BENCHMARK_ALGORITHM_DEPS_$$*}
 # Args: custom options for the algo, name of algo, train and test data, # samples, output path.
-	${ENV} python -m summaries.scripts.run_inference ${ALGORITHM_OPTIONS_$*} $* \
+	${ENV} python -m summaries.scripts.run_inference ${BENCHMARK_ALGORITHM_OPTIONS_$*} benchmark \
+		$(if ${BENCHMARK_ALGORITHM_$*},${BENCHMARK_ALGORITHM_$*},$*) \
 		${BENCHMARK_DATA_ROOT}/${REFERENCE}.pkl ${BENCHMARK_DATA_ROOT}/${MODE}.pkl ${NUM_SAMPLES} $@
+
+# Download coalescent model data and run inference =================================================
+
+COAL_ROOT = workspace/coal
+
+# Download and split into train, validation, and test ----------------------------------------------
+
+COAL_DATA_ROOT = ${COAL_ROOT}/data
+
+${COAL_DATA_ROOT}/coaloracle.rda :
+# Thanks to Matt Nunes for sharing!
+	mkdir -p $(dir $@)
+	curl -L -o $@ https://web.archive.org/web/0if_/https://people.bath.ac.uk/man54/computerstuff/otherfiles/ABC/coaloracle.rda
+
+${COAL_DATA_ROOT}/coaloracle.csv : ${COAL_DATA_ROOT}/coaloracle.rda
+	Rscript --vanilla summaries/scripts/coaloracle_rda2csv.r $< $@
+
+${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl ${COAL_DATA_ROOT}/test.pkl : \
+		${COAL_DATA_ROOT}/coaloracle.csv
+	SEED=0 python -m summaries.scripts.preprocess_coal $< $(dir $@) test.pkl=1000 validation.pkl=10000 \
+		train.pkl=989000
+
+# Train a mixture density network and regressor ----------------------------------------------------
+
+COAL_MDN = ${COAL_ROOT}/mdn.pt
+COAL_MDN_COMPRESSOR = ${COAL_ROOT}/mdn_compressor.pt
+COAL_REGRESSOR = ${COAL_ROOT}/regressor.pt
+
+${COAL_ROOT}/neural_compressors : ${COAL_MDN} ${COAL_MDN_COMPRESSOR} ${COAL_MSE_COMPRESSOR}
+
+${COAL_MDN} ${COAL_MDN_COMPRESSOR} : ${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl
+# The initialisation affects the performance of the model. We fix it here for a "good enough" seed.
+	SEED=1 ${ENV} LOGLEVEL=info python -m summaries.scripts.train_nn --mdn_output=${COAL_MDN} \
+		--num_features=2 --num_components=5 coal mdn $^ ${COAL_MDN_COMPRESSOR}
+
+${COAL_REGRESSOR} : ${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl
+	SEED=1 ${ENV} LOGLEVEL=info python -m summaries.scripts.train_nn --num_features=2 coal \
+		regressor $^ $@
+
+# Draw posterior samples using different algorithms ------------------------------------------------
+
+COAL_SAMPLE_ROOT = ${COAL_ROOT}/samples
+# Algorithms, additional algorithm options, and additional algorithm dependencies.
+COAL_ALGORITHMS = naive nunes fearnhead mdn mdn_compressor regressor
+# Extra arguments for the algorithms.
+COAL_ALGORITHM_OPTIONS_mdn = "--cls_options={\"path\": \"${COAL_MDN}\"}"
+COAL_ALGORITHM_OPTIONS_mdn_compressor = "--cls_options={\"path\": \"${COAL_MDN_COMPRESSOR}\"}"
+COAL_ALGORITHM_OPTIONS_regressor = "--cls_options={\"path\": \"${COAL_REGRESSOR}\"}"
+# Algorithm name if different from the target.
+COAL_ALGORITHM_mdn_compressor = neural_compressor
+COAL_ALGORITHM_regressor = neural_compressor
+# Extra dependencies for the algorithms.
+COAL_ALGORITHM_DEPS_mdn = ${COAL_MDN}
+COAL_ALGORITHM_DEPS_mdn_compressor = ${COAL_MDN_COMPRESSOR}
+COAL_ALGORITHM_DEPS_regressor = ${COAL_REGRESSOR}
+
+COAL_SAMPLE_TARGETS = $(addprefix ${COAL_SAMPLE_ROOT}/,${COAL_ALGORITHMS:=.pkl})
+
+${COAL_SAMPLE_ROOT} : ${COAL_SAMPLE_TARGETS}
+
+${COAL_SAMPLE_TARGETS} : ${COAL_SAMPLE_ROOT}/%.pkl : ${COAL_DATA_ROOT}/train.pkl \
+		${COAL_DATA_ROOT}/test.pkl $${COAL_ALGORITHM_DEPS_$$*}
+# Args: custom options for the algo, name of algo, train and test data, # samples, output path.
+	${ENV} python -m summaries.scripts.run_inference ${COAL_ALGORITHM_OPTIONS_$*} coal \
+		$(if ${COAL_ALGORITHM_$*},${COAL_ALGORITHM_$*},$*) ${COAL_DATA_ROOT}/train.pkl \
+		${COAL_DATA_ROOT}/test.pkl ${NUM_SAMPLES} $@

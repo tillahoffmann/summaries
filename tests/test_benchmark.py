@@ -38,7 +38,7 @@ def test_benchmark_coverage():
 def test_benchmark_stan_model():
     # Generate some data and fit the model.
     data = benchmark.sample()
-    xs = data['x']
+    xs = data['x'][..., :1]
     model = benchmark.StanBenchmarkAlgorithm('summaries/benchmark.stan')
     samples, info = model.sample(np.asarray([xs.numpy()] * 3), 1000, keep_fits=True)
 
@@ -61,6 +61,11 @@ def test_benchmark_batch_sample():
     batch_size = 47
     batch = benchmark.sample(size=batch_size)
     assert batch['theta'].shape == (batch_size, 1)
-    assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS, 1)
-    assert batch['noise'].shape == (batch_size, benchmark.NUM_OBSERVATIONS,
-                                    benchmark.NUM_NOISE_FEATURES)
+    assert batch['x'].shape == (batch_size, benchmark.NUM_OBSERVATIONS,
+                                1 + benchmark.NUM_NOISE_FEATURES)
+
+
+def preprocess_candidate_features():
+    batch = benchmark.sample(size=47)
+    features = benchmark.preprocess_candidate_features(batch['x'])
+    assert features.shape == (47, 6)
