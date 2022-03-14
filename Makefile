@@ -141,19 +141,30 @@ COAL_ROOT = workspace/coal
 # Download and split into train, validation, and test ----------------------------------------------
 
 COAL_DATA_ROOT = ${COAL_ROOT}/data
+COAL_DATA_NAMES = coaloracle coal coalobs
+COAL_DATA_TARGETS = $(addprefix ${COAL_DATA_ROOT}/,${COAL_DATA_NAMES:=.rda})
+COAL_DATA_CSV_TARGETS = $(addprefix ${COAL_DATA_ROOT}/,${COAL_DATA_NAMES:=.csv})
+COAL_URL_coaloracle = https://web.archive.org/web/0if_/https://people.bath.ac.uk/man54/computerstuff/otherfiles/ABC/coaloracle.rda
+COAL_URL_coal = https://github.com/dennisprangle/abctools/raw/8c4e440389933722f8288b49bc88c6a38057f511/data/coal.rda
+COAL_URL_coalobs = https://github.com/dennisprangle/abctools/raw/8c4e440389933722f8288b49bc88c6a38057f511/data/coalobs.rda
 
-${COAL_DATA_ROOT}/coaloracle.rda :
+${COAL_DATA_ROOT} : ${COAL_DATA_TARGETS} ${COAL_DATA_CSV_TARGETS} ${COAL_DATA_ROOT}/train.pkl \
+	${COAL_DATA_ROOT}/validation.pkl ${COAL_DATA_ROOT}/test.pkl
+${COAL_DATA_TARGETS} : ${COAL_DATA_ROOT}/%.rda :
 # Thanks to Matt Nunes for sharing!
 	mkdir -p $(dir $@)
-	curl -L -o $@ https://web.archive.org/web/0if_/https://people.bath.ac.uk/man54/computerstuff/otherfiles/ABC/coaloracle.rda
+	curl -L -o $@ ${COAL_URL_$*}
 
-${COAL_DATA_ROOT}/coaloracle.csv : ${COAL_DATA_ROOT}/coaloracle.rda
-	Rscript --vanilla summaries/scripts/coaloracle_rda2csv.r $< $@
+${COAL_DATA_CSV_TARGETS} : ${COAL_DATA_ROOT}/%.csv : summaries/scripts/coal_rda2csv.r ${COAL_DATA_ROOT}/%.rda
+	Rscript --vanilla $^ $* $@
 
 ${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl ${COAL_DATA_ROOT}/test.pkl : \
 		${COAL_DATA_ROOT}/coaloracle.csv
 	SEED=0 python -m summaries.scripts.preprocess_coal $< $(dir $@) test.pkl=1000 validation.pkl=10000 \
 		train.pkl=989000
+
+${COAL_DATA_ROOT}/coalobs.pkl : ${COAL_DATA_ROOT}/coalobs.csv
+	python -m summaries.scripts.preprocess_coal $< $(dir $@) coalobs.pkl=100
 
 # Train a mixture density network and regressor ----------------------------------------------------
 
@@ -166,7 +177,7 @@ ${COAL_ROOT}/neural_compressors : ${COAL_MDN} ${COAL_MDN_COMPRESSOR} ${COAL_MSE_
 ${COAL_MDN} ${COAL_MDN_COMPRESSOR} : ${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl
 # The initialisation affects the performance of the model. We fix it here for a "good enough" seed.
 	SEED=1 ${ENV} LOGLEVEL=info python -m summaries.scripts.train_nn --mdn_output=${COAL_MDN} \
-		--num_features=2 --num_components=5 coal mdn $^ ${COAL_MDN_COMPRESSOR}
+		--num_features=2 --num_components=10 coal mdn $^ ${COAL_MDN_COMPRESSOR}
 
 ${COAL_REGRESSOR} : ${COAL_DATA_ROOT}/train.pkl ${COAL_DATA_ROOT}/validation.pkl
 	SEED=1 ${ENV} LOGLEVEL=info python -m summaries.scripts.train_nn --num_features=2 coal \
