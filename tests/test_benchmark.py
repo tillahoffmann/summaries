@@ -54,7 +54,7 @@ def test_benchmark_stan_model():
     # Compare the likelihoods for each value.
     for x, part in zip(xs, variables['target_parts'].T):
         log_prob = likelihood.log_prob(x)
-        np.testing.assert_allclose(part, log_prob, rtol=1e-5)
+        np.testing.assert_allclose(part, log_prob, rtol=1e-4)
 
 
 def test_benchmark_batch_sample():

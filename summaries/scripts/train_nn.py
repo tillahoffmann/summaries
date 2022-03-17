@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 import pickle
 import torch as th
 from .. import benchmark, coal, nn, util
@@ -34,7 +33,7 @@ def __main__(args: list[str] = None):
     parser.add_argument('model', help='model whose parameters to infer',
                         choices=['benchmark', 'coal'])
     parser.add_argument('architecture', help='architecture of the neural network',
-                        choices=['mdn', 'regressor'])
+                        choices=['mdn_compressor', 'regressor'])
     parser.add_argument('train', help='training data path')
     parser.add_argument('validation', help='validation data path')
     parser.add_argument('output', help='output for the compressor model')
@@ -62,7 +61,7 @@ def __main__(args: list[str] = None):
         raise NotImplementedError(args.model)
 
     # Construct the neural network and loss function.
-    if args.architecture == 'mdn':
+    if args.architecture == 'mdn_compressor':
         loss_function = evaluate_negative_log_likelihood
         if args.model == 'benchmark':
             expansion_nodes = [args.num_features, 16, args.num_components]
@@ -122,12 +121,10 @@ def __main__(args: list[str] = None):
     logger.info('training complete')
 
     # Save the results.
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
     th.save(compressor, args.output)
     logger.info('saved compressor to %s', args.mdn_output)
 
     if args.mdn_output:
-        os.makedirs(os.path.dirname(args.mdn_output), exist_ok=True)
         th.save(module, args.mdn_output)
         logger.info('saved MDN to %s', args.mdn_output)
 

@@ -8,7 +8,7 @@ import torch as th
 
 
 @pytest.mark.parametrize('model', ['coal', 'benchmark'])
-@pytest.mark.parametrize('architecture', ['mdn', 'regressor'])
+@pytest.mark.parametrize('architecture', ['mdn_compressor', 'regressor'])
 def test_train_nn(model: str, architecture: str):
     num_components = 7
     batch_size = 13
@@ -25,7 +25,7 @@ def test_train_nn(model: str, architecture: str):
         raise NotImplementedError(model)
     param_shape = (batch_size, num_params)
 
-    if architecture == 'mdn':
+    if architecture == 'mdn_compressor':
         num_features = 2 * num_params
     elif architecture == 'regressor':
         num_features = num_params
@@ -51,7 +51,7 @@ def test_train_nn(model: str, architecture: str):
             model, architecture, data_path, data_path, compressor_path,
             f'--num_components={num_components}', f'--num_features={num_features}',
         ]
-        if architecture == 'mdn':
+        if architecture == 'mdn_compressor':
             mdn_path = os.path.join(tmp, 'mdn.pt')
             args.append(f'--mdn_output={mdn_path}')
         train_nn.__main__(args)
