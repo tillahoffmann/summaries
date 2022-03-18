@@ -313,5 +313,5 @@ def setup_script():
         np.random.seed(seed)
         th.manual_seed(seed)
         LOGGER.info("applied seed %d", seed)
-    else:
+    else:  # pragma: no cover
         LOGGER.info("did not apply random number generator seed")
