@@ -61,7 +61,8 @@ for problem, architecture in it.product(['benchmark', 'coal'], ['mdn_compressor'
         outputs = [f"{architecture}.pt"]
         inputs = [bb.File('data/train.pkl'), bb.File('data/validation.pkl')]
         args = ['$!', '-m', 'summaries.scripts.train_nn', problem, architecture, *inputs, '$@',
-                f'--num_features={2 if problem == "coal" else 1}']
+                f'--num_features={2 if problem == "coal" else 1}',
+                f'--num_components={10 if problem == "coal" else 2}']
         # Also save the mixture density network rather than just the compressor.
         if architecture == 'mdn_compressor':
             mdn = bb.File("mdn.pt")
