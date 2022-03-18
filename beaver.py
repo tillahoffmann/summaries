@@ -12,7 +12,7 @@ with bb.group_artifacts('workspace', 'benchmark', 'data'):
     ]
     for split, size, seed in configs:
         args = ['python', '-m', 'summaries.scripts.generate_benchmark_data', int(size), '$@']
-        bb.Subprocess(f'{split}.pkl', None, args, env={'SEED': seed})
+        bb.Subprocess(f'{split}.pkl', None, args, env={'SEED': seed, 'LOGLEVEL': 'info'})
 
 
 # Download data for the benchmark problem, convert to CSV as an intermediate, and then to the same
@@ -24,33 +24,34 @@ with bb.group_artifacts('workspace', 'coal', 'data') as (*_, group):
             'coaloracle',
             'https://web.archive.org/web/0if_/https://people.bath.ac.uk/man54/computerstuff/'
             'otherfiles/ABC/coaloracle.rda',
-            '7a8a639bd0ec9d017a25e6b7fb4da0b9d3e8cc8c1a24c75b21340aab88a7122f',
+            'a24b2de5',
             {'test': 1_000, 'validation': 10_000, 'train': 989_000},
         ),
         (
             'coal',
             'https://github.com/dennisprangle/abctools/raw/'
             '8c4e440389933722f8288b49bc88c6a38057f511/data/coal.rda',
-            '1b52cd9d166daffdcddac71e4edfc9663d6d06c97728c2cbd6dcaf5ea665d365',
+            'ab2e69b1',
             {'coal': 100_000},
         ),
         (
             'coalobs',
             'https://github.com/dennisprangle/abctools/raw/'
             '8c4e440389933722f8288b49bc88c6a38057f511/data/coalobs.rda',
-            '3aa189cd40f1e43e3755cee8debed4f31a5f86bafaa42b6584591eca1b3fba63',
+            '1d48f06c',
             {'obs': 100},
         ),
     ]
     for name, url, digest, splits in configs:
-        rda, = bb.Download(f'{name}.rda', url, digest)
+        file = bb.File(f'{name}.rda', expected_digest=digest)
+        rda, = bb.Download(file, url)
 
         csv, = bb.Subprocess(f'{name}.csv', [conversion_script, rda],
-                             ['Rscript', '--vanilla', '$^', name, '$@'])
+                             ['Rscript', '--vanilla', conversion_script, rda, name, '$@'])
 
         filenames = [f'{split}.pkl' for split in splits]
         splits = [f'{split}.pkl={size}' for split, size in splits.items()]
-        cmd = ["$!", "-m", "summaries.scripts.preprocess_coal", "$<", group.name, ' '.join(splits)]
+        cmd = ["$!", "-m", "summaries.scripts.preprocess_coal", csv, group.name, *splits]
         bb.Subprocess(filenames, csv, cmd, env={'SEED': 0})
 
 
