@@ -11,6 +11,9 @@ import torch as th
 import typing
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 def estimate_entropy(x: th.Tensor, k: int = 4, method: str = 'singh') -> float:
     """
     Estimate the entropy of a point cloud.
@@ -309,3 +312,6 @@ def setup_script():
         seed = int(seed)
         np.random.seed(seed)
         th.manual_seed(seed)
+        LOGGER.info("applied seed %d", seed)
+    else:
+        LOGGER.info("did not apply random number generator seed")
