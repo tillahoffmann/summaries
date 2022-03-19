@@ -1,9 +1,10 @@
 import beaver_build as bb
-import itertools as it
 
 
-# Generate synthetic data.
-with bb.group_artifacts('workspace', 'benchmark', 'data'):
+def generate_benchmark_data(num_observations):
+    """
+    Utility function for generating datasets of different sizes with a given number of observations.
+    """
     configs = [
         ('train', 1e6, 0),
         ('validation', 1e4, 1),
@@ -11,8 +12,20 @@ with bb.group_artifacts('workspace', 'benchmark', 'data'):
         ('debug', 1e2, 3),
     ]
     for split, size, seed in configs:
-        args = ['python', '-m', 'summaries.scripts.generate_benchmark_data', int(size), '$@']
+        args = [
+            'python', '-m', 'summaries.scripts.generate_benchmark_data', int(size), '$@',
+            f'--num_observations={num_observations}'
+        ]
         bb.Subprocess(f'{split}.pkl', None, args, env={'SEED': seed, 'LOGLEVEL': 'info'})
+
+
+# Generate synthetic data one small dataset and one large to study the effect of variable numbers of
+# observation.
+with bb.group_artifacts('workspace', 'benchmark'):
+    with bb.group_artifacts('small', 'data'):
+        generate_benchmark_data(10)
+    with bb.group_artifacts('large', 'data'):
+        generate_benchmark_data(100)
 
 
 # Download data for the benchmark problem, convert to CSV as an intermediate, and then to the same
@@ -43,59 +56,91 @@ with bb.group_artifacts('workspace', 'coal', 'data') as (*_, group):
         ),
     ]
     for name, url, digest, splits in configs:
-        file = bb.File(f'{name}.rda', expected_digest=digest)
-        rda, = bb.Download(file, url)
-
+        # Download and convert the data.
+        rda, = bb.Download(bb.File(f'{name}.rda', expected_digest=digest), url)
         csv, = bb.Subprocess(f'{name}.csv', [conversion_script, rda],
                              ['Rscript', '--vanilla', conversion_script, rda, name, '$@'])
 
+        # Split the data into smaller parts for training, validation, and test.
         filenames = [f'{split}.pkl' for split in splits]
         splits = [f'{split}.pkl={size}' for split, size in splits.items()]
         cmd = ["$!", "-m", "summaries.scripts.preprocess_coal", csv, group.name, *splits]
         bb.Subprocess(filenames, csv, cmd, env={'SEED': 0})
 
 
-# Train the machine learning models for the coalescent and benchmark problems.
-for problem, architecture in it.product(['benchmark', 'coal'], ['mdn_compressor', 'regressor']):
-    with bb.group_artifacts('workspace', problem):
-        outputs = [f"{architecture}.pt"]
-        inputs = [bb.File('data/train.pkl'), bb.File('data/validation.pkl')]
-        args = ['$!', '-m', 'summaries.scripts.train_nn', problem, architecture, *inputs, '$@',
-                f'--num_features={2 if problem == "coal" else 1}',
-                f'--num_components={10 if problem == "coal" else 2}']
-        # Also save the mixture density network rather than just the compressor.
-        if architecture == 'mdn_compressor':
-            mdn = bb.File("mdn.pt")
-            outputs.append(mdn)
-            args.append(f'--mdn_output={mdn}')
-        bb.Subprocess(outputs, inputs, args, env={'SEED': 1, 'LOGLEVEL': 'INFO'})
+def train_nn(problem, architecture, num_features, num_components):
+    """Utility function to train compressors."""
+    outputs = [f"{architecture}.pt"]
+    with bb.group_artifacts('data'):
+        inputs = [bb.File('train.pkl'), bb.File('validation.pkl')]
 
-# Run the inference for all problems.
-num_samples = 5000
-for problem in ['benchmark', 'coal']:
-    with bb.group_artifacts('workspace', problem):
-        # Set up the list of viable methods for the problem.
-        methods = ['naive', 'fearnhead', 'nunes', 'regressor', 'mdn_compressor', 'mdn']
-        if problem == 'benchmark':
-            methods.append('stan')
+    args = [
+        '$!', '-m', 'summaries.scripts.train_nn', problem, architecture, *inputs, '$@',
+        f'--num_features={num_features}',
+    ]
+    # Also save the mixture density network rather than just the compressor.
+    if architecture == 'mdn_compressor':
+        mdn = bb.File("mdn.pt")
+        outputs.append(mdn)
+        args.extend([f'--mdn_output={mdn}', f'--num_components={num_components}'])
+    else:
+        assert num_components is None
+    bb.Subprocess(outputs, inputs, args, env={'SEED': 1, 'LOGLEVEL': 'INFO'})
 
-        # Iterate over the methods and construct the transformations for running the inference.
-        inputs = [bb.File("data/train.pkl"), bb.File("data/test.pkl")]
-        for method in methods:
-            if method in {'mdn_compressor', 'regressor', 'mdn'}:
-                model_path = bb.File(f'{method}.pt')
-                inputs.append(model_path)
-                algorithm = 'mdn' if method == 'mdn' else 'neural_compressor'
-                extra_arg = '--cls_options={{"path": "%s"}}' % model_path
-            else:
-                algorithm = method
-                if method == 'stan':
-                    extra_arg = \
-                        '--sample_options={{"keep_fits": true, "seed": 0, "adapt_delta": 0.99}}'
-                else:
-                    extra_arg = None
-            args = ['$!', '-m', 'summaries.scripts.run_inference', problem, algorithm, *inputs[:2],
-                    num_samples, '$@']
-            if extra_arg:
-                args.append(extra_arg)
-            bb.Subprocess(f"samples/{method}.pkl", inputs, args)
+
+for size in ['small', 'large']:
+    with bb.group_artifacts('workspace', 'benchmark', size):
+        train_nn('benchmark', 'mdn_compressor', 1, 2)
+        train_nn('benchmark', 'regressor', 1, None)
+
+with bb.group_artifacts('workspace', 'coal'):
+    train_nn('coal', 'mdn_compressor', 2, 10)
+    train_nn('coal', 'regressor', 2, None)
+
+
+def sample(problem, method, num_samples, output=None, path=None):
+    """
+    Utility function for drawing posterior samples.
+    """
+    with bb.group_artifacts('data'):
+        inputs = [bb.File("train.pkl"), bb.File("test.pkl")]
+
+    algorithm = method
+    flags = {}
+    if method in {'mdn_compressor', 'mdn', 'regressor'}:
+        path = path or bb.File(f'{method}.pt')
+        inputs.append(path)
+        flags['cls_options'] = '{{"path": "%s"}}' % path.name
+        if method != 'mdn':
+            algorithm = 'neural_compressor'
+    elif method == 'stan':
+        flags['sample_options'] = '{{"keep_fits": true, "seed": 0, "adapt_delta": 0.99}}'
+    args = ['$!', '-m', 'summaries.scripts.run_inference', problem, algorithm, *inputs[:2],
+            num_samples, '$@'] + [f'--{key}={value}' for key, value in flags.items()]
+    bb.Subprocess(output or f"samples/{method}.pkl", inputs, args)
+
+
+# Run on the benchmark problem.
+methods = ['naive', 'fearnhead', 'nunes', 'regressor', 'mdn_compressor', 'mdn']
+for method in methods + ['stan']:
+    with bb.group_artifacts('workspace', 'benchmark', 'small'):
+        sample('benchmark', method, 5000)
+
+# Just run the "ground truth" and compressor trained on the large dataset for the large dataset.
+for method in ['stan', 'mdn_compressor']:
+    with bb.group_artifacts('workspace', 'benchmark', 'large'):
+        sample('benchmark', method, 5000)
+
+# Add on mdn compression samples for the statistics we learned with the small dataset but apply them
+# to the large dataset. This allows us to study how good the statistics are at generalising to
+# datasets of different sizes.
+compressor = bb.File('workspace/benchmark/small/mdn_compressor.pt')
+with bb.group_artifacts('workspace', 'benchmark', 'large'):
+    output = "samples/mdn_compressor_small.pkl"
+    sample('benchmark', 'mdn_compressor', 5000, output, compressor)
+
+# Apply to coalescent dataset.
+for method in methods:
+    with bb.group_artifacts('workspace', 'coal'):
+        # 4945 samples ensures that we sample the same fraction of the reference table: 0.5%.
+        sample('coal', method, 4945)

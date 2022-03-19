@@ -54,7 +54,9 @@ class NeuralCompressorNearestNeighborAlgorithm(algorithm.StaticCompressorNearest
     def _target(self, x):
         x = th.as_tensor(x)
         with th.no_grad():
-            return self.model(x)
+            # Compress in batches of size 1000 to avoid memory issues.
+            ys = [self.model(batch) for batch in x.split(1000)]
+        return th.concat(ys)
 
 
 class NeuralDensityAlgorithm(algorithm.Algorithm):
