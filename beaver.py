@@ -131,6 +131,14 @@ for method in ['stan', 'mdn_compressor']:
     with bb.group_artifacts('workspace', 'benchmark', 'large'):
         sample('benchmark', method, 5000)
 
+# The Fearnhead dataset suffers from additional variability because the regression coefficients are
+# wholly determined by noise: there is no (linear) signal. This script captures additional
+# variability by repeated runs. This is neither necessary nor computationally feasible for the other
+# methods.
+with bb.group_artifacts('workspace', 'benchmark', 'small'):
+    args = ['$!', '-m', 'summaries.scripts.estimate_benchmark_entropy', 1_000_000, 100, '$@']
+    bb.Subprocess('fearnhead_random_entropies.pkl', None, args, env={'SEED': 0})
+
 # Add on mdn compression samples for the statistics we learned with the small dataset but apply them
 # to the large dataset. This allows us to study how good the statistics are at generalising to
 # datasets of different sizes.
