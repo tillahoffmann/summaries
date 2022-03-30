@@ -122,7 +122,7 @@ def __main__(args: list[str] = None):
 
     # Save the results.
     th.save(compressor, args.output)
-    logger.info('saved compressor to %s', args.mdn_output)
+    logger.info('saved compressor to %s', args.output)
 
     if args.mdn_output:
         th.save(module, args.mdn_output)
