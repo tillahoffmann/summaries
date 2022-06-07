@@ -1,6 +1,14 @@
 import beaver_build as bb
 
 
+# Prevent each process from parallelizing which can lead to competition across processes.
+bb.Subprocess.set_global_env({
+    "NUMEXPR_NUM_THREADS": 1,
+    "OPENBLAS_NUM_THREADS": 1,
+    "OMP_NUM_THREADS": 1,
+})
+
+
 def generate_benchmark_data(num_observations):
     """
     Utility function for generating datasets of different sizes with a given number of observations.
@@ -152,3 +160,9 @@ for method in methods:
     with bb.group_artifacts('workspace', 'coal'):
         # 4945 samples ensures that we sample the same fraction of the reference table: 0.5%.
         sample('coal', method, 4945)
+
+# Hack: make the figures depend on all other artifacts so they get generated last.
+all_artifacts = bb.DEFAULT_CONTEXT.artifacts.values()
+args = ["$!", "-m", "nbconvert", "--execute", "--to=html", "--output-dir=workspace/figures",
+        "figures.ipynb"]
+bb.Subprocess("workspace/figures/figures.html", all_artifacts, args)
