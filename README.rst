@@ -8,7 +8,7 @@ This repository accompanies the preprint `"Minimizing the expected posterior ent
 
 You can reproduce the results in three steps:
 
-1. Set up a new, clean python virtual environment (you can also skip this step to use your host python environment if you must).
+1. Set up a new, clean python virtual environment (you can also skip this step to use your host python environment, but your mileage may vary).
 2. Install all the requirements by running :code:`pip install -r requirements.txt`.
 3. Generate all result files by running :code:`beaver build --all`. You may optionally include the flag :code:`-c [number of cores]` if you want to parallelize over multiple cores.
 
