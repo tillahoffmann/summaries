@@ -139,4 +139,4 @@ figures/
 summaries/benchmark
 summaries/benchmark.hpp
 *.prof
-.beavercache
+.doit.db
