@@ -10,7 +10,17 @@ You can reproduce the results in three steps:
 
 1. Set up a new, clean python virtual environment (you can also skip this step to use your host python environment, but your mileage may vary).
 2. Install all the requirements by running :code:`pip install -r requirements.txt`.
-3. Generate all result files by running :code:`beaver build --all`. You may optionally include the flag :code:`-c [number of cores]` if you want to parallelize over multiple cores.
+3. Generate all result files by running the following code from the command line.
+
+.. code-block:: bash
+
+  # Ignore the figures until we have generated all data files.
+  doit ignore figures
+  # Generate the data files (use -n to parallelize if desired).
+  doit -n [number of cores]
+  # Generate the figures and a summary file `workspace/figures/figures.html`.
+  doit forget figures
+  doit figures
 
 You will find all figures in the folder :code:`workspace/figures` together with a HTML report :code:`workspace/figures/figures.html` that contains additional information. This process takes about 40 minutes on an M1 MacBook Pro when parallelizing across six cores.
 

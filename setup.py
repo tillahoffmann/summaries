@@ -6,8 +6,8 @@ setup(
     packages=find_packages(),
     version='0.1.0',
     install_requires=[
-        'beaver-build>=0.1.2',
         'cmdstanpy',
+        'doit',
         'matplotlib',
         'numpy',
         'pandas',
