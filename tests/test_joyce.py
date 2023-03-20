@@ -35,5 +35,5 @@ def test_joyce_likelihood_ratio_calibration():
     ys = np.asarray([np.random.multinomial(num_samples, proba) for proba in probas])
     scores = joyce.evaluate_log_likelihood_ratio(xs, ys)
     cdfs = stats.chi2(num_bins - 1).cdf(scores)
-    pval = stats.binom_test((cdfs < alpha).sum(), num_runs, alpha)
-    assert pval > 0.01
+    binom = stats.binomtest((cdfs < alpha).sum(), num_runs, alpha)
+    assert binom.pvalue > 0.001

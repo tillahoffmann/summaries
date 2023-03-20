@@ -7,24 +7,22 @@ data {
 parameters {
     // We focus on the tanh-transformed positive mode for better mixing and generate the actual
     // samples in `generated quantities`.
-    real<lower=0, upper=1> loc;
+    real<lower=0, upper=1> theta_;
 }
 
 transformed parameters {
-    real theta_ = atanh(loc);
-    real<lower=0> scale = sqrt(variance_offset - loc ^ 2);
+    real<lower=0> scale = sqrt(variance_offset - theta_ ^ 2);
     vector[num_obs] target_parts;
     for (i in 1:num_obs) {
         target_parts[i] = log_sum_exp(
-            normal_lpdf(x[i] | loc, scale),
-            normal_lpdf(x[i] | -loc, scale)
+            normal_lpdf(x[i] | theta_, scale),
+            normal_lpdf(x[i] | -theta_, scale)
         ) - log(2);
     }
 }
 
 model {
     theta_ ~ normal(0, 1);
-    target += - log1p(- loc ^ 2);  // Jacobian for the reparameterization in terms of `loc`.
     target += sum(target_parts);
 }
 

@@ -17,6 +17,7 @@ class DenseStack(th.nn.Module):
         layers = []
         for i, j in zip(num_nodes, num_nodes[1:]):
             layers.extend([th.nn.Linear(i, j), activation])
+        # Create a sequential layer, removing the last activation layer.
         self.layers = th.nn.Sequential(*layers[:-1])
 
     def forward(self, x: th.Tensor) -> th.Tensor:

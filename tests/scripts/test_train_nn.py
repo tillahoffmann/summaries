@@ -37,8 +37,9 @@ def test_train_nn(model: str, architecture: str):
         data = {
             'samples': {
                 'x': np.random.normal(0, 1, data_shape),
-                # We sample from the support of the coalescent model posterior or the tests fail.
-                'theta': np.random.uniform(0, 10, param_shape),
+                # We sample from the positive support of the benchmark problem which is a subset of
+                # the coalescent model parameters.
+                'theta': np.random.uniform(0, 1, param_shape),
             }
         }
         data_path = os.path.join(tmp, 'train.pkl')

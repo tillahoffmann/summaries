@@ -39,11 +39,10 @@ def evaluate_gaussian_mixture_distribution(theta: th.Tensor) -> th.distributions
     constant variance independent of parameters. But the likelihood is informative of the
     parameters.
     """
-    loc = theta.tanh()
-    scale = (VARIANCE_OFFSET - loc.square()).sqrt()
+    scale = (VARIANCE_OFFSET - theta.square()).sqrt()
     return th.distributions.MixtureSameFamily(
         th.distributions.Categorical(th.ones((*theta.shape, 2)) / 2),
-        th.distributions.Normal((2 * th.arange(2) - 1) * loc[..., None], scale[..., None])
+        th.distributions.Normal((2 * th.arange(2) - 1) * theta[..., None], scale[..., None])
     )
 
 
@@ -64,7 +63,7 @@ def sample(*, theta: th.Tensor = None, size: tuple = None, num_observations: int
     """
     size = normalize_shape(size)
     if theta is None:
-        theta = th.distributions.Normal(0, 1).sample(size)
+        theta = th.distributions.Uniform(-1, 1).sample(size)
     num_noise_features = num_noise_features or NUM_NOISE_FEATURES
     num_observations = num_observations or NUM_OBSERVATIONS
     x = evaluate_gaussian_mixture_distribution(theta).sample((num_observations,))
@@ -90,7 +89,7 @@ def evaluate_log_joint(x: th.Tensor, theta: th.Tensor, normalize: bool = True) -
             posterior.
     """
     # Evaluate the prior.
-    log_prior = th.distributions.Normal(0.0, 1.0).log_prob(theta)
+    log_prior = th.distributions.Uniform(-1, 1).log_prob(theta)
     # Evaluate the likelihood. We expand the dimension so we can sum over the samples.
     dist = evaluate_gaussian_mixture_distribution(theta[..., None])
     log_likelihood = dist.log_prob(x[..., 0]).sum(axis=-1)
@@ -110,7 +109,7 @@ def _plot_example(theta: th.Tensor = None) -> matplotlib.figure.Figure:
     """
     # Validate arguments and draw a sample.
     if theta is None:
-        theta = th.scalar_tensor(1.5)
+        theta = th.scalar_tensor(0.7)
     data = sample(theta=theta)
     lin = th.linspace(-3, 3, 100)
 
@@ -196,8 +195,8 @@ class MixtureDensityNetwork(th.nn.Module):
         super().__init__()
         self.compressor = compressor
         self.logits = DenseStack(expansion_nodes, activation)
-        self.locs = DenseStack(expansion_nodes, activation)
-        self.log_scales = DenseStack(expansion_nodes, activation)
+        self.logit_locs = DenseStack(expansion_nodes, activation)
+        self.log_concentrations = DenseStack(expansion_nodes, activation)
 
     def forward(self, x: th.Tensor) -> th.distributions.Distribution:
         # Compress the data and ensure we lost one dimension.
@@ -206,13 +205,15 @@ class MixtureDensityNetwork(th.nn.Module):
 
         # Estimate properties of the Gaussian mixture.
         logits = self.logits(y)
-        locs = self.locs(y)
-        scales = self.log_scales(y).exp()
+        locs = th.special.expit(self.logit_locs(y))
+        concentrations = self.log_concentrations(y).exp()
+        concentrations1 = locs * concentrations
+        concentrations0 = (1 - locs) * concentrations
 
         # We create a normal distribution with one-dimensional event shape to match the convention
         # of `(batch_shape, num_params)`.
         component_distribution = th.distributions.Independent(
-            th.distributions.Normal(locs[..., None], scales[..., None]), 1
+            th.distributions.Beta(concentrations1[..., None], concentrations0[..., None]), 1
         )
         dist = th.distributions.MixtureSameFamily(
             th.distributions.Categorical(logits=logits),

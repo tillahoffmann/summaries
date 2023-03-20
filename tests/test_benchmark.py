@@ -1,6 +1,5 @@
 import numpy as np
 from scipy import stats
-import summaries
 from summaries import benchmark
 import torch as th
 
@@ -8,31 +7,26 @@ import torch as th
 def test_benchmark_coverage():
     """
     This test verifies that the exact posterior (based on numerical integration) has correct
-    coverage in the sense that the `1 - alpha` credible interval contains the true value in
-    `1 - alpha` of the simulated cases.
+    coverage in the sense that the parameter value used to generate synthetic value has
+    approximately uniform rank within the posteriors.
     """
-    alpha = .3
-    lin = th.linspace(-4, 4, 200)
-    levels = []
+    eps = 1e-6
+    lin = th.linspace(-1 + eps, 1 - eps, 1000)
+    dx = lin[1] - lin[0]
+    quantiles = []
     for _ in range(100):
         # Sample and evaluate the posterior.
         data = benchmark.sample()
         log_posterior = benchmark.evaluate_log_joint(data['x'], lin)
         posterior = np.exp(log_posterior)
 
-        # Evaluate the desired level.
-        level = summaries.evaluate_credible_level(posterior, alpha)
-        # Find the level that's close to the theta of interest.
-        delta2 = np.square(data['theta'] - lin)
-        assert delta2.shape == posterior.shape
-        level0 = posterior.ravel()[np.argmin(delta2.ravel())]
-        levels.append((level, level0))
+        # Evaluate the quantile of the true value.
+        fltr = lin < data["theta"]
+        quantile = th.trapz(posterior[fltr], dx=dx).item()
+        quantiles.append(quantile)
 
-    # Evaluate the number of successes and failures.
-    level, level0 = np.transpose(levels)
-    successes = np.sum(level > level0)
-    pvalue = stats.binom_test(successes, len(level), alpha)
-    assert pvalue > 0.01
+    ks = stats.ks_1samp(quantiles, lambda x: x)
+    assert ks.pvalue > 0.001
 
 
 def test_benchmark_stan_model():
@@ -49,7 +43,7 @@ def test_benchmark_stan_model():
     likelihood = benchmark.evaluate_gaussian_mixture_distribution(th.as_tensor(variables['theta']))
     # Make sure the parameters of the likelihood are the same.
     component_dist: th.distributions.Normal = likelihood._component_distribution
-    np.testing.assert_allclose(variables['loc'], component_dist.loc[:, 0].abs())
+    np.testing.assert_allclose(variables['theta_'], component_dist.loc[:, 0].abs())
     np.testing.assert_allclose(variables['scale'], component_dist.scale[:, 0])
     # Compare the likelihoods for each value.
     for x, part in zip(xs, variables['target_parts'].T):

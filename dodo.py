@@ -235,7 +235,8 @@ def task_sample_posterior():
     # other methods.
     basename = "benchmark/small/fearnhead_random_entropies"
     target = ROOT / f"{basename}.pkl"
-    args = [PYTHON, "-m", "summaries.scripts.estimate_benchmark_entropy", "1000000", "100", target]
+    args = [PYTHON, "-m", "summaries.scripts.estimate_benchmark_entropy", "--batch_size=100",
+            "1000000", "100", target]
     yield default_task | {
         "targets": [target],
         "basename": basename,
