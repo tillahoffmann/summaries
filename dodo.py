@@ -202,7 +202,7 @@ def sample(problem: typing.Literal["benchmark", "coal"], method: str, num_sample
     elif model_path is not None:
         raise ValueError(f"explicit model path {model_path} cannot be used with method {method}")
     elif method == 'stan':
-        flags['sample_options'] = '{"keep_fits": true, "seed": 0, "adapt_delta": 0.99}'
+        flags['sample_options'] = '{"keep_fits": false, "seed": 0, "adapt_delta": 0.99}'
     args = [PYTHON, '-m', 'summaries.scripts.run_inference', problem.split("/")[0], algorithm,
             *inputs[:2], str(num_samples), target] \
         + [f'--{key}={value}' for key, value in flags.items()]
