@@ -23,12 +23,22 @@ import summaries
 from summaries import benchmark
 import torch as th
 from tqdm.notebook import tqdm
-mpl.style.use("scrartcl.mplstyle")
+mpl.style.use("oup.mplstyle")
 
 
 WORKSPACE_ROOT = pathlib.Path("workspace")
 FIGURE_ROOT = WORKSPACE_ROOT / "figures"
 FIGURE_ROOT.mkdir(exist_ok=True)
+
+ASPECT = 0.75
+COLUMN_WIDTH = 3.392
+COLUMN_FIG = (COLUMN_WIDTH, ASPECT * COLUMN_WIDTH)
+
+TEXT_WIDTH = 7.034
+TEXT_FIG = (TEXT_WIDTH, ASPECT * TEXT_WIDTH)
+
+MID_WIDTH = 4.25
+MID_FIG = (MID_WIDTH, ASPECT * MID_WIDTH)
 ```
 
 ## Composite figure illustrating challenges associated with entropy and mean-squared error minimization.
@@ -78,14 +88,14 @@ b = 1  # Scale parameter of the gamma distribution.
 a = np.linspace(1, 4, 100)
 second_moment = np.linspace(.2, .725, 101)
 aa, ss = np.meshgrid(a, second_moment)
-entropy_gain = evaluate_entropy_gain(aa, b, n, ss) 
+entropy_gain = evaluate_entropy_gain(aa, b, n, ss)
 
-fig, axes = plt.subplots(1, 2)
+fig, axes = plt.subplots(1, 2, figsize=MID_FIG)
 
 # Plot entropy gain with "centered" colorbar.
 ax = axes[0]
 vmax = np.abs(entropy_gain).max()
-mappable = ax.pcolormesh(a, second_moment, entropy_gain, vmax=vmax, vmin=-vmax, 
+mappable = ax.pcolormesh(a, second_moment, entropy_gain, vmax=vmax, vmin=-vmax,
                          cmap='coolwarm', rasterized=True)
 cs = ax.contour(a, second_moment, entropy_gain, levels=[0], colors='k', linestyles=':')
 
@@ -138,7 +148,7 @@ lin = np.linspace(-xmax, xmax, 101)
 # Posterior needs a factor of 0.5 to be normalized because we have the left and right branch.
 ax.plot(lin, posterior.pdf(np.abs(lin)) / 2)
 ax.ticklabel_format(axis='y', scilimits=(0, 0), useMathText=True)
-ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(5))
+ax.yaxis.set_major_locator(mpl.ticker.FixedLocator([0, 0.1, 0.2]))
 
 summaries.label_axes(axes)
 fig.tight_layout()
@@ -202,7 +212,7 @@ print('\n'.join(lines))
 ```
 
 ```{code-cell} ipython3
-# Run a posterior p-value calibration check: the cdf of the true values should  be uniform under the 
+# Run a posterior p-value calibration check: the cdf of the true values should  be uniform under the
 # posterior.
 plt.hist(stats.gamma(ap, scale=1 / bp).cdf(precision_samples), density=True)
 pass
@@ -258,7 +268,7 @@ num_points = 200  # Number of points in the figure (we sample more for MI estima
 
 results = generate_data(m, n, entropy_method, scale)
 
-fig, axes = plt.subplots(2, 2, sharex=True)
+fig, axes = plt.subplots(2, 2, sharex=True, figsize=MID_FIG)
 
 # Show the two priors.
 ax = axes[1, 0]
@@ -316,13 +326,13 @@ with open(WORKSPACE_ROOT / 'benchmark/small/data/test.pkl', 'rb') as fp:
     test_data = pickle.load(fp)
     test_samples = test_data['samples']
     test_features = benchmark.preprocess_candidate_features(test_samples['x'])
-    
+
 methods = ['fearnhead', 'mdn_compressor', 'nunes', 'stan', 'mdn', 'naive', 'regressor']
 results_by_methods = {}
 for method in methods:
     with open(WORKSPACE_ROOT / f'benchmark/small/samples/{method}.pkl', 'rb') as fp:
         results_by_methods[method] = pickle.load(fp)
-        
+
 mdn = th.load(WORKSPACE_ROOT / 'benchmark/small/mdn.pt')
 ```
 
@@ -334,7 +344,7 @@ xs0 = th.as_tensor(test_samples['x'][idx])
 x0 = xs0[:, 0]
 theta0 = th.as_tensor(test_samples['theta'][idx, 0])
 
-fig, axes = plt.subplots(2, 2, sharex='col')
+fig, axes = plt.subplots(2, 2, sharex='col', figsize=MID_FIG)
 axes[1, 0].sharey(axes[1, 1])
 
 # Plot the likelihood.
@@ -367,7 +377,7 @@ ax.set_ylabel(r'Posterior $p(\theta\mid x_0)$')
 ax.legend(ncol=2, loc='upper right', columnspacing=.5, labelspacing=.1)
 ax.set_ylim(top=0.6)
 
-# Show the compression function. We flip the sign (which is irrelevant for the algorithm but nicer 
+# Show the compression function. We flip the sign (which is irrelevant for the algorithm but nicer
 # for plotting).
 ax = axes[1, 0]
 with th.no_grad():
@@ -375,14 +385,14 @@ with th.no_grad():
 pts = ax.scatter(x0, y0, marker='o', zorder=9)
 pts.set_edgecolor('w')
 ax.axhline(y0.mean(), ls='--', color='k')
-    
+
 xlin_with_zero_noise = th.hstack([xlin[:, None], th.zeros((xlin.shape[0], 2))])
 with th.no_grad():
     y = mdn.compressor(xlin_with_zero_noise[:, None]).ravel()
 ax.plot(xlin, -y, label='learned summary', zorder=3)
 ax.set_xlabel(r'Data $x$')
 
-# Run a polynomial regression weighted by the prior to show that the initial features can generate 
+# Run a polynomial regression weighted by the prior to show that the initial features can generate
 # similar output in principle.
 def predict(x, *coefs):
     return np.dot(x[:, None] ** [0, 2, 4, 6, 8], coefs)
@@ -397,7 +407,7 @@ ax.legend(loc='upper right')
 ax = axes[1, 1]
 
 # Fudge the mixture density network to return the summaries we want. I.e. rather than applying the
-# compressor to the data to get summaries, we instead "inject" a grid of summaries so we can 
+# compressor to the data to get summaries, we instead "inject" a grid of summaries so we can
 # evaluate the density as a function of the summaries on a grid.
 sumlin = th.linspace(-3.9, y.max() + .25, 250)
 compressor_forward = mdn.compressor.forward
@@ -410,7 +420,7 @@ finally:
     # Make sure to restore the mixture density network to its original state.
     mdn.compressor.forward = compressor_forward
 
-ax.imshow(lp.exp().T.numpy()[::-1], extent=(tlin[0], tlin[-1], -sumlin[-1], -sumlin[0]), 
+ax.imshow(lp.exp().T.numpy()[::-1], extent=(tlin[0], tlin[-1], -sumlin[-1], -sumlin[0]),
           aspect='auto')
 ax.axhline(y0.mean(), color='w', ls='--')
 ax.axvline(theta0, color='w', ls='--')
@@ -419,9 +429,9 @@ summaries.label_axes(axes.ravel()[:3])
 summaries.label_axes(axes[1, 1], label_offset=3, color='w')
 
 [ax.set_ylabel(r'Summary statistic $t(x)$') for ax in axes[1]]
-[ax.text(.99, y0.mean() + 0.1, '$t(x_0)$', transform=ax.get_yaxis_transform(), 
+[ax.text(.99, y0.mean() + 0.1, '$t(x_0)$', transform=ax.get_yaxis_transform(),
          color=color, ha='right') for ax, color in zip(axes[1], 'kw')]
-[ax.text(theta0 + 0.1, .025, r'$\theta_0$', transform=ax.get_xaxis_transform(), 
+[ax.text(theta0 + 0.1, .025, r'$\theta_0$', transform=ax.get_xaxis_transform(),
          color=color) for ax, color in zip(axes[:, 1], 'kw')]
 
 fig.tight_layout()
@@ -444,7 +454,7 @@ for method, result in tqdm(results_by_methods.items()):
 ```{code-cell} ipython3
 with open(WORKSPACE_ROOT / 'benchmark/small/fearnhead_random_entropies.pkl', 'rb') as fp:
     entropies = pickle.load(fp)['entropies']
-    
+
 for key, values in entropies.items():
     value = values.mean(axis=1)
     print(f'{key}: {value.mean():.2f}+-{value.std() / np.sqrt(value.size - 1):.2f}')
@@ -454,7 +464,7 @@ for key, values in entropies.items():
 th.distributions.Normal(0, 1).entropy()
 ```
 
-## Larger dataset 
+## Larger dataset
 
 We can also learn summaries on a small dataset and then apply them to a dataset with larger number of observations per example.
 
@@ -463,7 +473,7 @@ large_results_by_method = {}
 for method in ['stan', 'mdn_compressor', 'mdn_compressor_small']:
     with open(WORKSPACE_ROOT / f'benchmark/large/samples/{method}.pkl', 'rb') as fp:
         large_results_by_method[method] = pickle.load(fp)
-        
+
 for method, result in large_results_by_method.items():
     entropies = np.asarray([summaries.estimate_entropy(x) for x in result['posterior_samples']])
     print(f'{method}: {entropies.mean():.3f}+-{entropies.std() / np.sqrt(entropies.size - 1):.3f}')
@@ -487,17 +497,17 @@ rmses_by_method = {}
 for method, result in tqdm(results_by_methods.items()):
     entropies = np.asarray([summaries.estimate_entropy(x) for x in result['posterior_samples']])
     entropies_by_method[method] = entropies
-    
+
     rmses = np.sqrt([
         np.square(result['posterior_samples'] - result['theta'][:, None]).sum(axis=-1).mean(axis=-1)])
     rmses_by_method[method] = rmses
-    
+
     print(
         f'{method}: {entropies.mean():.2f}+-{entropies.std() / np.sqrt(entropies.size - 1):.2f}\t'
         f'{rmses.mean():.2f}+-{rmses.std() / np.sqrt(rmses.size - 1):.2f}\t'
     )
-    
-# Show what we would expect if we sampled from the prior. Factors of two account for the model 
+
+# Show what we would expect if we sampled from the prior. Factors of two account for the model
 # having two parameters.
 prior_entropy = 2 * th.distributions.Uniform(0, 10).entropy()
 prior_rmse = summaries.evaluate_rmse_uniform(10) * np.sqrt(2)
@@ -505,7 +515,7 @@ print('prior', prior_entropy, prior_rmse)
 ```
 
 ```{code-cell} ipython3
-fig, axes = plt.subplots(1, 2)
+fig, axes = plt.subplots(1, 2, figsize=MID_FIG)
 
 labels = {
     'fearnhead': 'Linear regression',
@@ -531,14 +541,14 @@ for method, entropies in entropies_by_method.items():
     rmses = rmses_by_method[method]
     xerr = entropies.std() / np.sqrt(entropies.size - 1)
     yerr = rmses.std() / np.sqrt(rmses.size - 1)
-    errorbar = ax.errorbar(entropies.mean(), rmses.mean(), yerr, xerr, marker=markers[method], ls='none', 
+    errorbar = ax.errorbar(entropies.mean(), rmses.mean(), yerr, xerr, marker=markers[method], ls='none',
                            label=labels[method], zorder=9 if method == 'mdn_compressor' else None)
     pts, *_ = errorbar.get_children()
     pts.set_markeredgecolor('w')
     # Print the results for inspection.
     print(f"method: {method}; entropy: {entropies.mean():.3f} +- {xerr:.3f}; "
           f"RMSE: {rmses.mean():.3f} +- {yerr:.3f}")
-    
+
 ax.legend(loc='upper left')
 ax.set_xlabel(r'Expected posterior entropy $\mathcal{H}$')
 ax.set_ylabel('Root mean squared error')
@@ -549,7 +559,7 @@ ax.set_ylim(top=4.175)
 ax = axes[0]
 # Size of each individual (square or circle).
 size = 0.65
-# Sex indicator for individuals in each layer, corresponding to generations. We tack on an 
+# Sex indicator for individuals in each layer, corresponding to generations. We tack on an
 # individual with "square" sex to each layer to illustrate that the population is much larger.
 layers = [
     [0, 1, 0, 1, ],
@@ -566,13 +576,13 @@ for i, layer in enumerate(layers):
         else:
             patch = mpl.patches.Rectangle((i - size / 2, - j - size / 2), size, size, **kwargs)
         ax.add_patch(patch)
-        
+
 ax.set_ylim(- len(layer) - 1, 1)
 ax.set_xlim(-.5, len(layers)-.5)
 ax.set_aspect('equal')
 
 # Relationships in each layer. Each tuple corresponds to one of the individuals in `layers`. E.g.,
-# a tuple (i, j) at the second position indicates that the person with index 1 in the layer has 
+# a tuple (i, j) at the second position indicates that the person with index 1 in the layer has
 # parents i and j in the previous layer.
 relationships = [
     [(0, 1), (2, 3), (2, 3), (2, 3)],
@@ -584,17 +594,17 @@ for i, layer in enumerate(relationships):
     for j, parents in enumerate(layer):
         for sign in [-1, 1]:
             xy = [
-                (i - size / 2 + 1, j), 
-                (i + .5, j), 
+                (i - size / 2 + 1, j),
+                (i + .5, j),
                 (i + .5, np.mean(parents)),
                 (i, np.mean(parents)),
                 (i, np.mean(parents) + (0.5 - size / 2) * sign),
             ]
             x, y = np.transpose(xy)
-            line = mpl.lines.Line2D(x, -y, solid_capstyle='butt', 
+            line = mpl.lines.Line2D(x, -y, solid_capstyle='butt',
                                     color='k', linewidth=1, solid_joinstyle='round')
             ax.add_line(line)
-            
+
 # Height and which of each illustrated chromosome.
 csize = 0.75 * size
 cheight = 0.2 * size
@@ -616,8 +626,8 @@ for (x, y), chromosomes in chromosomes_by_individual.items():
     for i, colors in enumerate(chromosomes):
         for j, color in enumerate(colors):
             patch = mpl.patches.Rectangle(
-                (x - csize / 2 + j / len(colors) * csize, - y - i * cheight), 
-                csize / len(colors), cheight, 
+                (x - csize / 2 + j / len(colors) * csize, - y - i * cheight),
+                csize / len(colors), cheight,
                 facecolor=color, alpha=.75)
             ax.add_patch(patch)
         patch = mpl.patches.Rectangle(
@@ -626,17 +636,17 @@ for (x, y), chromosomes in chromosomes_by_individual.items():
             facecolor='none', edgecolor='k'
         )
         ax.add_patch(patch)
-        
+
 # Add on a random mutation.
 ax.scatter([1, 2], [-1 + cheight / 2, -cheight / 2], marker='.', color='k').set_edgecolor('w')
 
-# Illustrate the direction of time.      
+# Illustrate the direction of time.
 y = - len(layer) - .5
-ax.arrow(- size / 2, y, len(layers) - 1 + size, 0, 
+ax.arrow(- size / 2, y, len(layers) - 1 + size, 0,
          linewidth=1, head_width=.1, length_includes_head=True, facecolor='k')
 ax.text(len(layers) / 2 - .5, y - .1, r'Generations', va='top', ha='center')
 
-# Plot the semi-transparent individuals illustrating the larger population (squares are easier to 
+# Plot the semi-transparent individuals illustrating the larger population (squares are easier to
 # plot). This isn't pretty, but it does the trick.
 segments = []
 z = []
@@ -653,7 +663,7 @@ for i in range(len(layers)):
                 segments.append([(x, top - y * size / 2), (x, top - previous * size / 2)])
                 z.append(y)
             previous = y
-    
+
 collection = mpl.collections.LineCollection(segments, array=z, cmap='binary_r', lw=1)
 ax.add_collection(collection)
 ax.yaxis.set_ticks([])
@@ -699,7 +709,7 @@ for i, ax in enumerate(axes):
 
 ```{code-cell} ipython3
 # Note that these "look too good to be true" because `spatial.procrustes` also applies scalings. It
-# is reassuring to see that the two embeddings prior to procrustes transform have different 
+# is reassuring to see that the two embeddings prior to procrustes transform have different
 # covariance eigenvalues.
 print(f"evals of method 1: {np.linalg.eigvalsh(np.cov(y1.T))}")
 print(f"evals of method 2: {np.linalg.eigvalsh(np.cov(y2.T))}")
