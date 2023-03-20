@@ -1,7 +1,6 @@
 import argparse
 import numpy as np
 import pickle
-from sklearn import linear_model
 from tqdm import tqdm
 from .. import algorithm, benchmark, util
 
@@ -22,6 +21,7 @@ def __main__(args: list[str] = None) -> int:
     args = parser.parse_args(args)
 
     entropies = {}
+    coefs = {}
     for _ in tqdm(range(args.num_repeats)):
         # Generate training and test data.
         train_batch = benchmark.sample(size=args.num_reference_samples)
@@ -29,22 +29,21 @@ def __main__(args: list[str] = None) -> int:
         test_batch = benchmark.sample(size=args.batch_size)
         test_features = benchmark.preprocess_candidate_features(test_batch["x"].numpy())
 
-        # Fit the linear model.
-        model = linear_model.LinearRegression()
-        model.fit(train_features, train_batch['theta'])
-
-        # Set up predictors.
         coef = np.random.normal(0, 1, (train_features.shape[1], 1))
-        predictors = {
-            'fearnhead': model.predict,
-            'random': lambda x: x.dot(coef),
+        fearnhead = algorithm.FearnheadAlgorithm(train_features, train_batch["theta"])
+        algorithms = {
+            "fearnhead": fearnhead,
+            "random": algorithm.StaticCompressorNearestNeighborAlgorithm(
+                train_features, train_batch["theta"], lambda x: x @ coef
+            )
         }
 
-        for method, predictor in predictors.items():
+        coefs.setdefault("random", []).append(coef)
+        coefs.setdefault("fearnhead", []).append(fearnhead.predictor.coef_)
+
+        for method, algo in algorithms.items():
             # Draw samples and estimate entropies.
-            samples, _ = algorithm.StaticCompressorNearestNeighborAlgorithm(
-                train_features, train_batch["theta"].numpy(), predictor
-            ).sample(test_features, args.num_posterior_samples)
+            samples, _ = algo.sample(test_features, args.num_posterior_samples)
             entropies.setdefault(method, []).append([util.estimate_entropy(x) for x in samples])
 
     # Cast to numpy and report results informally.
@@ -52,6 +51,13 @@ def __main__(args: list[str] = None) -> int:
     for key, value in entropies.items():
         value = value.mean(axis=1)
         print(f'{key}: {value.mean():.3f} +- {value.std() / np.sqrt(value.size - 1):.3f}')
+
+    # Cast coefficients to numpy and report.
+    coefs = {key: np.squeeze(value) for key, value in coefs.items()}
+    for key, value in coefs.items():
+        print(f"{key} coefficients")
+        print("mean", value.mean(axis=0))
+        print("std", value.std(axis=0))
 
     # Save the results.
     with open(args.output, 'wb') as fp:
