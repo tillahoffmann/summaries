@@ -7,6 +7,6 @@ def test_estimate_benchmark_entropy():
         estimate_benchmark_entropy.__main__(['--num_posterior_samples=5', '100', '7', 'output.pkl'])
     open_.assert_called_once_with('output.pkl', 'wb')
     result = dump_.call_args[0][0]
-    entropies = result['entropies']
     for key in ['random', 'fearnhead']:
-        assert entropies[key].shape == (7, 100)
+        assert result['entropies'][key].shape == (7, 100)
+        assert result['coefficients'][key].shape == (7, 6)
