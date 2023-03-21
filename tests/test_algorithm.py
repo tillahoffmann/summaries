@@ -3,26 +3,31 @@ import pytest
 import summaries
 
 
-@pytest.fixture
-def algorithm(request):
-    n = 10000
+@pytest.fixture(params=[False, True])
+def configuration(request: pytest.FixtureRequest):
+    n = 10_000
     mu = np.random.normal(0, 1, (n, 1))
     x = np.random.normal(mu, 1, (n, 10)).mean(axis=1, keepdims=True)
-    return summaries.NearestNeighborAlgorithm(x, mu)
+    return {
+        "algorithm": summaries.NearestNeighborAlgorithm(x, mu, standardize=request.param),
+        "x": x,
+        "mu": mu,
+    }
 
 
-def test_rejection_algorithm(algorithm: summaries.NearestNeighborAlgorithm):
-    x = algorithm.train_data
-    mu = algorithm.train_params
+def test_rejection_algorithm(configuration: dict) -> None:
+    x = configuration["x"]
+    mu = configuration["mu"]
+    algorithm = configuration["algorithm"]
 
     # Sample from the approximate posterior.
     num_samples = 100
     y, info = algorithm.sample(x[0], num_samples + 1)
 
     # Drop the first sample (because it's what we used to generate the data).
-    assert info['distances'][0] == 0
-    i = info['indices'][1:]
-    y = y[1:]
+    assert info['distances'][0, 0] == 0
+    i = info['indices'][0, 1:]
+    y = y[0, 1:]
 
     # Verify shape and ensure MSE of the sample is smaller than MSE for the entire reference table.
     assert i.shape == (num_samples,)
@@ -33,15 +38,16 @@ def test_rejection_algorithm(algorithm: summaries.NearestNeighborAlgorithm):
     assert algorithm.num_params == 1
 
 
-def test_rejection_algorithm_batch_query(algorithm: summaries.NearestNeighborAlgorithm):
+def test_rejection_algorithm_batch_query(configuration: dict):
     batch_size = 13
     num_samples = 17
-    x = algorithm.train_data[:batch_size]
-    y, info = algorithm.sample(x, num_samples)
-    assert y.shape == (batch_size, num_samples, algorithm.num_params)
+    x = configuration["x"][:batch_size]
+    y, info = configuration["algorithm"].sample(x, num_samples)
+    assert y.shape == (batch_size, num_samples, configuration["algorithm"].num_params)
     assert info['indices'].shape == (batch_size, num_samples)
     assert info['distances'].shape == (batch_size, num_samples)
 
 
-def test_logger(algorithm: summaries.Algorithm):
+def test_logger(configuration: summaries.Algorithm):
+    algorithm = configuration["algorithm"]
     algorithm.logger.debug('logging test for %s', algorithm)
