@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
 import pickle
-from sklearn import linear_model
+from sklearn import linear_model, preprocessing
 from tqdm import tqdm
 from .. import algorithm, benchmark, util
 
@@ -22,12 +22,17 @@ def __main__(args: list[str] = None) -> int:
     args = parser.parse_args(args)
 
     entropies = {}
+    coefficients = {}
     for _ in tqdm(range(args.num_repeats)):
         # Generate training and test data.
         train_batch = benchmark.sample(size=args.num_reference_samples)
         train_features = benchmark.preprocess_candidate_features(train_batch["x"].numpy())
         test_batch = benchmark.sample(size=args.batch_size)
         test_features = benchmark.preprocess_candidate_features(test_batch["x"].numpy())
+
+        scalar = preprocessing.StandardScaler()
+        train_features = scalar.fit_transform(train_features)
+        test_features = scalar.transform(test_features)
 
         # Fit the linear model.
         model = linear_model.LinearRegression()
@@ -40,6 +45,7 @@ def __main__(args: list[str] = None) -> int:
             'random': lambda x: x.dot(coef),
         }
 
+        # Sample and evaluate the entropy.
         for method, predictor in predictors.items():
             # Draw samples and estimate entropies.
             samples, _ = algorithm.StaticCompressorNearestNeighborAlgorithm(
@@ -47,17 +53,24 @@ def __main__(args: list[str] = None) -> int:
             ).sample(test_features, args.num_posterior_samples)
             entropies.setdefault(method, []).append([util.estimate_entropy(x) for x in samples])
 
+        # Store the coefficients.
+        coefficients.setdefault('fearnhead', []).append(model.coef_)
+        coefficients.setdefault('random', []).append(coef)
+
     # Cast to numpy and report results informally.
     entropies = {key: np.asarray(value) for key, value in entropies.items()}
     for key, value in entropies.items():
         value = value.mean(axis=1)
         print(f'{key}: {value.mean():.3f} +- {value.std() / np.sqrt(value.size - 1):.3f}')
 
+    coefficients = {key: np.squeeze(value) for key, value in coefficients.items()}
+
     # Save the results.
     with open(args.output, 'wb') as fp:
         pickle.dump({
             'args': vars(args),
             'entropies': entropies,
+            'coefficients': coefficients,
         }, fp)
 
 
