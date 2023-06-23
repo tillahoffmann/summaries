@@ -4,7 +4,7 @@ from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LinearRegression
 from summaries.base import Container, ParamDict
 from summaries.compressors import _PredictorCompressor, Compressor, \
-    MinimumConditionalEntropyCompressor
+    _ExhaustiveSubsetSelectionCompressor, MinimumConditionalEntropyCompressor
 from typing import Callable
 
 
@@ -49,3 +49,9 @@ def test_predictor_compressor_invalid() -> None:
     compressor = _PredictorCompressor(LinearRegression(), "foo")
     with pytest.raises(ValueError, match="does not support"):
         compressor.transform(None)
+
+
+def test_subset_selection_compressor() -> None:
+    compressor = _ExhaustiveSubsetSelectionCompressor(0.1)
+    with pytest.raises(ValueError, match="single realization"):
+        compressor.fit(Container(None, np.zeros(2)), None)
