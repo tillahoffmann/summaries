@@ -26,7 +26,7 @@ class Compressor:
     `duck-typed <https://scikit-learn.org/stable/glossary.html#term-duck-typing>`__ to match a
     `scikit-learn transformer <https://scikit-learn.org/stable/glossary.html#term-transformer`__.
     """
-    def transform(self, data: ContainerOrValue) -> np.ndarray:
+    def transform(self, data: ContainerOrValue) -> ContainerOrValue:
         """
         Transform (simulated) data to summary statistics.
 

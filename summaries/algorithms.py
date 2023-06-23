@@ -43,7 +43,12 @@ class NearestNeighborAlgorithm:
         Draw approximate posterior samples.
 
         Args:
-            data: Data to condition on.
+            data: Data to condition on with shape `(batch_size, num_features)`.
+
+        Returns:
+            Dictionary of posterior samples. Each value has shape
+            `(batch_size, num_samples, *event_shape)`, where `event_shape` is the basic shape of the
+            corresponding parameter.
         """
         # Validate the state and input arguments.
         if self.tree_ is None:
