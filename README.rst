@@ -25,3 +25,16 @@ You can reproduce the results in three steps:
 You will find all figures in the folder :code:`workspace/figures` together with a HTML report :code:`workspace/figures/figures.html` that contains additional information. This process takes about 40 minutes on an M1 MacBook Pro when parallelizing across six cores.
 
 The code has been tested with python 3.9 on macOS 12.4 (Monterey) running on Apple silicon and on Ubuntu 20.04. The :code:`summaries` package has complete test coverage, and you can run :code:`pytest` from the repository root to verify that your installation is working.
+
+Architecture
+------------
+
+Accept-reject Approximate Bayesian computation with learned summaries proceeds as follows:
+
+1. Sample parameters :math:`\theta` from the prior :math:`p(\theta)`.
+2. Simulate synthetic data :math:`z` given parameters, implicitly sampling from :math:`p(z\mid\theta)`.
+3. Learn a compression function :math:`t(z)` that maps data to low-dimensional summary statistics.
+4. Apply the compression function to obtain summaries for the observed data :math:`y` and synthetic data :math:`z`.
+5. Accept proposed samples of :math:`\theta` if :math:`\left\Vert t(z) - t(y)\right\Vert < \epsilon` for some tolerance parameter :math:`\epsilon`.
+
+We implement these steps based on scikit-learn transformers and predictors and assemble them into end-to-end inference algorithms using pipelines.
