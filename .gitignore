@@ -141,3 +141,4 @@ summaries/benchmark.hpp
 *.prof
 .doit.db
 *.ipynb
+*~
