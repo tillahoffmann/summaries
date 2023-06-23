@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import functools as ft
 import numpy as np
-from typing import Callable, Dict, Generic, TypeVar, Union
+from typing import Callable, Dict, Generic, Type, TypeVar, Union
 
 
 T = TypeVar("T")
@@ -96,3 +96,15 @@ def maybe_apply_to_simulated(func: Callable[..., V]) -> Callable[..., V]:
                   kwargs.items()}
         return func(*args, **kwargs)
     return _wrapped
+
+
+def maybe_fit_simulated_transform_container(cls: Type[T]) -> Type[T]:
+    """
+    Fit a transformer to simulated data and apply it to both.
+    """
+    class _Transformer(cls):
+        pass
+    _Transformer.fit = maybe_apply_to_simulated(_Transformer.fit)
+    _Transformer.transform = maybe_apply_to_container(_Transformer.transform)
+
+    return _Transformer

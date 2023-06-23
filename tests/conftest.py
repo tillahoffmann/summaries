@@ -53,7 +53,7 @@ compressor_configurations = {
         MinimumConditionalEntropyCompressor,
         {"nearest_neighbor_frac": 0.001}
     ),
-    "TorchCompressor": (TorchCompressor, {"module": Mean()}),
+    "TorchCompressor": (TorchCompressor, {"compressor": Mean()}),
 }
 
 

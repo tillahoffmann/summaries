@@ -26,6 +26,8 @@ class Compressor:
     `duck-typed <https://scikit-learn.org/stable/glossary.html#term-duck-typing>`__ to match a
     `scikit-learn transformer <https://scikit-learn.org/stable/glossary.html#term-transformer`__.
     """
+    DATA_DEPENDENT = False
+
     def transform(self, data: ContainerOrValue) -> ContainerOrValue:
         """
         Transform (simulated) data to summary statistics.
@@ -67,10 +69,13 @@ class _ExhaustiveSubsetSelectionCompressor(Compressor):
         self.masks_: Optional[np.ndarray] = None
         self.losses_: Optional[np.ndarray] = None
 
+    DATA_DEPENDENT = True
+
     def fit(self, data: Container[np.ndarray], params: Container[np.ndarray]) -> Compressor:
         if not isinstance(data, Container):
             raise ValueError("data must be a `Container` for data-dependent subset selection "
                              f"algorithms; got {data}")
+        data = Container(np.asarray(data.simulated), np.asarray(data.observed))
         if data.observed.ndim != 2 or data.observed.shape[0] != 1:
             raise ValueError("observed data must be a single realization for data-dependent subset "
                              f"selection algorithms; got shape {data.observed.shape}")
@@ -122,7 +127,7 @@ class _ExhaustiveSubsetSelectionCompressor(Compressor):
 
     @maybe_apply_to_container
     def transform(self, data: np.ndarray) -> np.ndarray:
-        return data[:, self.best_mask_]
+        return np.asarray(data)[:, self.best_mask_]
 
 
 class MinimumConditionalEntropyCompressor(_ExhaustiveSubsetSelectionCompressor):
@@ -149,7 +154,7 @@ class SklearnEstimator:
         ...  # pragma: no cover
 
 
-class _PredictorCompressor:
+class _PredictorCompressor(Compressor):
     """
     Compress with a scikit-learn predictor for data-independent compression.
 
@@ -202,14 +207,14 @@ class TorchCompressor(Compressor):
     Compress with a pre-trained neural network (calling `fit` is a no-op).
 
     Args:
-        module: Neural network that compresses the data.
+        compressor: Neural network to compress data.
     """
-    def __init__(self, module: th.nn.Module) -> None:
-        self.module = module
+    def __init__(self, compressor: th.nn.Module) -> None:
+        self.compressor = compressor
 
     def fit(self, data: ContainerOrValue, params: ContainerOrValue[ParamDict]) -> Compressor:
         return self
 
     @maybe_apply_to_container
     def transform(self, data: Any) -> th.Tensor:
-        return self.module(data)
+        return self.compressor(data)

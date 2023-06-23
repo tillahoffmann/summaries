@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+from sklearn.preprocessing import StandardScaler
 from summaries.base import Container, maybe_apply_to_container, maybe_apply_to_simulated, \
-    ParamDict, ravel_param_dict
+    maybe_fit_simulated_transform_container, ParamDict, ravel_param_dict
 from typing import Any
 
 
@@ -42,3 +43,17 @@ def test_ravel_param_dict(x: ParamDict, batch_dims: int, expected: np.ndarray) -
 def test_ravel_param_dict_invalid() -> None:
     with pytest.raises(ValueError, match="requested 1 batch dimensions but parameter b"):
         ravel_param_dict({"a": np.ones(3), "b": np.asarray(0)}, 1)
+
+
+def test_transformer_decorator() -> None:
+    S = maybe_fit_simulated_transform_container(StandardScaler)
+
+    X = np.random.normal(0, 1, (5, 3))
+    Y = np.random.normal(0, 1, (4, 3))
+
+    container = Container(X, Y)
+
+    np.testing.assert_allclose(
+        S().fit(container).transform(container).observed,
+        StandardScaler().fit(X).transform(Y),
+    )

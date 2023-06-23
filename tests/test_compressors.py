@@ -12,7 +12,7 @@ def test_compressors(basic_compressor_factory: Callable[..., Compressor],
                      basic_data: Container[np.ndarray], basic_params: Container[ParamDict]) -> None:
     compressor = basic_compressor_factory()
     # Use a single observed dataset for data-dependent compressors.
-    if isinstance(compressor, MinimumConditionalEntropyCompressor):
+    if compressor.DATA_DEPENDENT:
         basic_data.observed = basic_data.observed[:1]
     compressor.fit(basic_data, basic_params)
 
@@ -29,7 +29,7 @@ def test_compressors(basic_compressor_factory: Callable[..., Compressor],
 
     # Construct another compressor and fit it only to the simulated data. Then verify the
     # predictions are the same. This only works for compressors that are data-independent.
-    if not isinstance(compressor, MinimumConditionalEntropyCompressor):
+    if not compressor.DATA_DEPENDENT:
         other_compressor = basic_compressor_factory()
         other_compressor.fit(basic_data.simulated, basic_params.simulated)
         other_transformed_observed = other_compressor.transform(basic_data.observed)
