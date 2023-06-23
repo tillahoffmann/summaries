@@ -32,7 +32,7 @@ def basic_data(basic_params: Container[ParamDict]) -> Container[np.ndarray]:
     def _sample(params: ParamDict):
         n = params["theta"].size
         p = 3
-        return params["theta"][..., None] + np.random.normal(0, .1, (n, p))
+        return params["theta"][..., None] * [0, 1, 1] + np.random.normal(0, .1, (n, p))
 
     return _sample(basic_params)
 
