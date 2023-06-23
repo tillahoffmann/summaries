@@ -131,7 +131,11 @@ class MinimumConditionalEntropyCompressor(_ExhaustiveSubsetSelectionCompressor):
     by Nunes and Balding (2010).
     """
     def _evaluate_loss(self, samples: ParamDict) -> np.ndarray:
-        return estimate_entropy(ravel_param_dict(samples, 1))
+        # Ravel the parameters for which we want to infer entropy. We maintain two batch dimensions:
+        # one of size one for the single sample and one for the number of samples drawn.
+        raveled = ravel_param_dict(samples, 2)
+        assert raveled.shape[0] == 1
+        return estimate_entropy(raveled[0])
 
 
 class SklearnEstimator:
