@@ -10,8 +10,10 @@ from typing import Callable
 
 def test_compressors(basic_compressor_factory: Callable[..., Compressor],
                      basic_data: Container[np.ndarray], basic_params: Container[ParamDict]) -> None:
-    # Construct a compressor and fit it to the full data.
     compressor = basic_compressor_factory()
+    # Use a single observed dataset for data-dependent compressors.
+    if isinstance(compressor, MinimumConditionalEntropyCompressor):
+        basic_data.observed = basic_data.observed[:1]
     compressor.fit(basic_data, basic_params)
 
     # Apply it to the container.

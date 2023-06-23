@@ -71,6 +71,9 @@ class _ExhaustiveSubsetSelectionCompressor(Compressor):
         if not isinstance(data, Container):
             raise ValueError("data must be a `Container` for data-dependent subset selection "
                              f"algorithms; got {data}")
+        if data.observed.ndim != 2 or data.observed.shape[0] != 1:
+            raise ValueError("observed data must be a single realization for data-dependent subset "
+                             f"selection algorithms; got shape {data.observed.shape}")
         _, num_features = data.simulated.shape
         self.masks_ = np.asarray([mask for mask in it.product(*[(False, True)] * num_features)
                                   if any(mask)])
